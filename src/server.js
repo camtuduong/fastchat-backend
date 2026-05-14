@@ -11,15 +11,18 @@ dotenv.config();
 export const env = {
   ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET,
 };
-
 const app = express();
-
-app.use(cookieParser());
-
 const PORT = process.env.PORT || 5001;
 
 //middleware
 app.use(express.json());
+app.use(cookieParser());
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    credentials: true,
+  }),
+);
 
 //public routes
 app.use("/api/auth", authRoute);
