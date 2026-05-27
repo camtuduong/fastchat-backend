@@ -141,8 +141,12 @@ export const signIn = async (req, res) => {
 
 export const signOut = async (req, res) => {
   try {
-    const { userId } = req.user;
+    const userId = req.user?._id;
     const deviceId = req.cookies.deviceId;
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
     if (deviceId) {
       await Session.updateOne(
@@ -174,6 +178,12 @@ export const signOut = async (req, res) => {
 
     //xoa refresh token va deviceId khoi cookies
     res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+    });
+
+    res.clearCookie("deviceId", {
       httpOnly: true,
       secure: true,
       sameSite: "none",
