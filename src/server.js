@@ -14,30 +14,13 @@ export const env = {
 };
 const app = express();
 const PORT = process.env.PORT || 5001;
-const allowedOrigins = [
-  "http://localhost:5173",
-  process.env.CLIENT_URL,
-]
-  .filter(Boolean)
-  .map((origin) => origin.replace(/\/$/, ""));
 
 //middleware
 app.use(express.json());
 app.use(cookieParser());
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (!origin) {
-        return callback(null, true);
-      }
-
-      const normalizedOrigin = origin.replace(/\/$/, "");
-      if (allowedOrigins.includes(normalizedOrigin)) {
-        return callback(null, true);
-      }
-
-      return callback(new Error("Not allowed by CORS"));
-    },
+    origin: process.env.CLIENT_URL || "http://localhost:5173/",
     credentials: true,
   }),
 );
