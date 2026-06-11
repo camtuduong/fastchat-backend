@@ -27,6 +27,7 @@ export const authMiddleware = async (req, res, next) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    //gắn user vào body để các controller có thể sử dụng
     req.user = user;
     next();
   } catch (error) {
