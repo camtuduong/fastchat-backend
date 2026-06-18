@@ -18,9 +18,15 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
     },
     displayName: { type: String, required: true, trim: true },
-    avatarUrl: { type: String, trim: true }, // Link CDN avatar hien thi hinh
-    avatarId: { type: String, trim: true }, // Cloudinary ID de xoa avatar cu
+    avatarUrl: { type: String, trim: true },
+    avatarId: { type: String, trim: true },
     bio: { type: String, maxlength: 500 },
+    status: {
+      type: String,
+      enum: ["online", "offline", "away", "busy"],
+      default: "offline",
+    },
+    lastActiveAt: { type: Date, default: null },
   },
   {
     timestamps: true,

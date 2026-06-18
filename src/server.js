@@ -1,8 +1,11 @@
 import express from "express";
 import dotenv from "dotenv";
 import { connectDB } from "./libs/db.js";
+
 import authRoute from "./routes/authRoute.js";
 import userRoute from "./routes/userRoute.js";
+import friendRoute from "./routes/friendRoute.js";
+
 import cookieParser from "cookie-parser";
 import { authMiddleware } from "./middlewares/authMiddleware.js";
 import cors from "cors";
@@ -14,10 +17,7 @@ export const env = {
 };
 const app = express();
 const PORT = process.env.PORT || 5001;
-const allowedOrigins = [
-  "http://localhost:5173",
-  process.env.CLIENT_URL,
-]
+const allowedOrigins = ["http://localhost:5173", process.env.CLIENT_URL]
   .filter(Boolean)
   .map((origin) => origin.replace(/\/$/, ""));
 
@@ -48,6 +48,7 @@ app.use("/api/auth", authRoute);
 //private routes
 app.use(authMiddleware);
 app.use("/api/users", userRoute);
+app.use("/api/friends", friendRoute);
 
 connectDB().then(() => {
   app.listen(PORT, () => {
