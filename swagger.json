@@ -1,0 +1,198 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "chatcungthorr",
+    "version": "1.0.0",
+    "description": ""
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5001"
+    }
+  ],
+  "paths": {
+    "/auth/signin": {
+      "post": {
+        "summary": "Log in",
+        "responses": {},
+        "tags": ["Auth"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "hihi"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                }
+              },
+              "example": {
+                "username": "string",
+                "password": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/signout": {
+      "post": {
+        "summary": "Log Out",
+        "responses": {},
+        "tags": ["Auth"],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/auth/signup": {
+      "post": {
+        "summary": "Sign Up",
+        "responses": {},
+        "tags": ["Auth"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string"
+                  },
+                  "firstName": {
+                    "type": "string"
+                  },
+                  "lastName": {
+                    "type": "string"
+                  }
+                }
+              },
+              "example": {
+                "username": "string",
+                "email": "string",
+                "password": "string",
+                "firstName": "string",
+                "lastName": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/me": {
+      "get": {
+        "summary": "me",
+        "responses": {},
+        "tags": ["User"]
+      }
+    },
+    "/friends/add": {
+      "post": {
+        "summary": "Send Friend RQ",
+        "responses": {},
+        "tags": ["Friend"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "toUserId": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                }
+              },
+              "example": {
+                "toUserId": "string",
+                "message": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/friends/{requestId}/accept": {
+      "post": {
+        "summary": "Accept RQ",
+        "responses": {},
+        "tags": ["Friend"],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "requestId",
+          "in": "path",
+          "required": true,
+          "deprecated": false,
+          "schema": {},
+          "example": ""
+        }
+      ]
+    },
+    "/friends/": {
+      "get": {
+        "summary": "Get All Friends",
+        "responses": {},
+        "tags": ["Friend"]
+      }
+    },
+    "/friends/{requestId}/decline": {
+      "post": {
+        "summary": "Decline RQ",
+        "responses": {},
+        "tags": ["Friend"]
+      },
+      "parameters": [
+        {
+          "name": "requestId",
+          "in": "path",
+          "required": true,
+          "deprecated": false,
+          "schema": {},
+          "example": ""
+        }
+      ]
+    },
+    "/friends/requests": {
+      "get": {
+        "summary": "Friend Requests",
+        "responses": {},
+        "tags": ["Friend"]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ]
+}
