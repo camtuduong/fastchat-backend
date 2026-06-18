@@ -10,6 +10,9 @@ import cookieParser from "cookie-parser";
 import { authMiddleware } from "./middlewares/authMiddleware.js";
 import cors from "cors";
 
+import swaggerUI from "swagger-ui-express";
+import fs from "fs";
+
 dotenv.config();
 
 export const env = {
@@ -41,6 +44,10 @@ app.use(
     credentials: true,
   }),
 );
+
+//swagger
+const swaggerDocument = JSON.parse(fs.readFileSync("./swagger.json", "utf-8"));
+app.use("/api-docs", swaggerUI.serve, swaggerUI.setup(swaggerDocument));
 
 //public routes
 app.use("/api/auth", authRoute);
