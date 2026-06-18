@@ -12,7 +12,7 @@ const friendRequestSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    content: {
+    message: {
       type: String,
       maxlength: 300,
     },
@@ -22,9 +22,9 @@ const friendRequestSchema = new mongoose.Schema(
   },
 );
 
-friendRequestSchema.index({ from: 1, to: 1 }, { unique: true });
-friendRequestSchema.index({ from: 1 });
-friendRequestSchema.index({ to: 1 });
+friendRequestSchema.index({ fromUserId: 1, toUserId: 1 }, { unique: true });
+friendRequestSchema.index({ fromUserId: 1 });
+friendRequestSchema.index({ toUserId: 1 });
 
 const FriendRequest = mongoose.model("FriendRequest", friendRequestSchema);
 export default FriendRequest;

@@ -14,7 +14,7 @@ export const sendFriendRequest = async (req, res) => {
       return res.status(404).json({ message: "User not exist" });
     }
 
-    if (fromUserId === toUserId) {
+    if (fromUserId.toString() === toUserId.toString()) {
       return res
         .status(400)
         .json({ message: "You cannot send a friend request to yourself" });
@@ -114,6 +114,8 @@ export const declineFriendRequest = async (req, res) => {
     const { requestId } = req.params;
     const userId = req.user._id;
 
+    console.log("Decline requestId:", requestId, "UserId:", userId);
+
     //tìm yêu cầu kết bạn
     const request = await FriendRequest.findById(requestId);
     if (!request) {
@@ -142,21 +144,22 @@ export const getAllFriends = async (req, res) => {
     //tìm tất cả mối quan hệ với UserId
     const friendships = await Friend.find({
       $or: [{ userA: userId }, { userB: userId }],
+    })
+      .populate("userA", "_id displayName avatarUrl")
+      .populate("userB", "_id displayName avatarUrl")
+      .lean();
+
+    if (!friendships.length) {
+      return res.status(200).json({ friends: [] });
+    }
+
+    //trả danh sách bạn bè
+    const friends = friendships.map((friendship) => {
+      friendship.userA._id.toString() === userId.toString()
+        ? friendship.userB
+        : friendship.userA;
     });
 
-    //lấy danh sách bạn bè
-    const friendIds = friendships.map((friendship) => {
-      if (friendship.userA.toString() === userId.toString()) {
-        return friendship.userB;
-      } else {
-        return friendship.userA;
-      }
-    });
-
-    //lấy thông tin bạn bè
-    const friends = await User.find({ _id: { $in: friendIds } }).select(
-      "_id displayName avatarUrl",
-    );
     return res.status(200).json({ friends });
   } catch (error) {
     console.error(error);
