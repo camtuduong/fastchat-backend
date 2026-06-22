@@ -14,7 +14,16 @@ const messageSchema = new mongoose.Schema(
       required: true,
     },
     content: { type: String, trim: true },
-    imgUrl: { type: String, trim: true },
+    attachments: [
+      {
+        type: {
+          type: String,
+          enum: ["image", "video", "file"],
+          required: true,
+        },
+        url: { type: String, required: true },
+      },
+    ],
   },
   { timestamps: true },
 );

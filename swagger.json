@@ -23,7 +23,7 @@
                 "type": "object",
                 "properties": {
                   "username": {
-                    "type": "hihi"
+                    "type": "string"
                   },
                   "password": {
                     "type": "string"

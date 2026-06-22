@@ -5,6 +5,7 @@ import { connectDB } from "./libs/db.js";
 import authRoute from "./routes/authRoute.js";
 import userRoute from "./routes/userRoute.js";
 import friendRoute from "./routes/friendRoute.js";
+import messageRoute from "./routes/messageRoute.js";
 
 import cookieParser from "cookie-parser";
 import { authMiddleware } from "./middlewares/authMiddleware.js";
@@ -56,6 +57,7 @@ app.use("/api/auth", authRoute);
 app.use(authMiddleware);
 app.use("/api/users", userRoute);
 app.use("/api/friends", friendRoute);
+app.use("/api/messages", messageRoute);
 
 connectDB().then(() => {
   app.listen(PORT, () => {
