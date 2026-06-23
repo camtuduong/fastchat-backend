@@ -23,7 +23,7 @@
                 "type": "object",
                 "properties": {
                   "username": {
-                    "type": "hihi"
+                    "type": "string"
                   },
                   "password": {
                     "type": "string"
@@ -149,12 +149,20 @@
         }
       ]
     },
-    "/friends/": {
+    "/friends/search?username={username}": {
       "get": {
         "summary": "Get All Friends",
         "responses": {},
         "tags": ["Friend"]
-      }
+      },
+      "parameters": [
+        {
+          "name": "username",
+          "in": "query",
+          "required": false,
+          "deprecated": false
+        }
+      ]
     },
     "/friends/{requestId}/decline": {
       "post": {
@@ -178,6 +186,20 @@
         "summary": "Friend Requests",
         "responses": {},
         "tags": ["Friend"]
+      }
+    },
+    "/messages/direct": {
+      "post": {
+        "summary": "Send Direct Message",
+        "requestBody": {},
+        "tags": ["Message"]
+      }
+    },
+    "/messages/group": {
+      "post": {
+        "summary": "Send Group Message",
+        "requestBody": {},
+        "tags": ["Message"]
       }
     }
   },

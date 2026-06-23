@@ -72,6 +72,7 @@ const conversationSchema = new mongoose.Schema(
       enum: ["direct", "group"],
       required: true,
     },
+    //người tham gia cuộc trò chuyện, bao gồm cả người tạo và người được mời
     participants: {
       type: [participantsSchema],
       required: true,

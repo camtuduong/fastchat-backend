@@ -9,6 +9,14 @@ const ACCESS_TOKEN_EXPIRES_IN = "15m";
 const REFRESH_TOKEN_EXPIRES_IN = 14 * 24 * 60 * 60 * 1000; //14 ngay
 const DEVICE_ID_EXPIRES_IN = 365 * 24 * 60 * 60 * 1000; //1 nam
 
+/* 
+  =============Đăng ký tài khoản================
+  - Kiểm tra xem tất cả các trường đều được cung cấp không?
+  - Kiểm tra xem username hoặc email đã tồn tại chưa?
+  - Mã hóa mật khẩu
+  - Tạo người dùng mới
+  - Trả về kết quả thành công
+*/
 export const signUp = async (req, res) => {
   try {
     const { username, email, password, firstName, lastName } = req.body;
@@ -44,6 +52,20 @@ export const signUp = async (req, res) => {
   }
 };
 
+/* 
+  =============Đăng nhập tài khoản================
+  - Kiểm tra xem tất cả các trường đều được cung cấp không?
+  - Kiểm tra xem username hoặc email đã tồn tại chưa?
+  - Mã hóa mật khẩu
+  - Kiểm tra mật khẩu có chính xác không?
+  - Lấy deviceId từ header, nếu không có thì tạo mới
+  - Tìm và kiểm tra xem có session nào hợp lệ cho userId và deviceId này không?
+  - Nếu có session hợp lệ thì thu hồi session cũ
+  - Tạo access token
+  - Tạo refresh token và lưu vào database
+  - Trả về refresh token vào cookies
+  - Trả về kết quả thành công và access token trong body
+*/
 export const signIn = async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -139,6 +161,14 @@ export const signIn = async (req, res) => {
   }
 };
 
+/* 
+  =============Đăng Xuất tài khoản================
+  - Lấy userId từ req.user và deviceId từ cookies
+  - Kiểm tra xem userId có tồn tại không?
+  - Nếu deviceId tồn tại thì tìm session tương ứng và thu hồi session đó
+  - Xóa refresh token và deviceId khỏi cookies
+  - Trả về kết quả thành công
+*/
 export const signOut = async (req, res) => {
   try {
     const userId = req.user?._id;
@@ -156,9 +186,10 @@ export const signOut = async (req, res) => {
           revokedAt: null,
           expiresAt: { $gt: new Date() },
         },
-        { 
-          revokedAt: new Date(), 
-          revokeReason: "User sign out" },
+        {
+          revokedAt: new Date(),
+          revokeReason: "User sign out",
+        },
       );
     }
 

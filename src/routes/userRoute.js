@@ -1,8 +1,9 @@
 import express from "express";
-import { authMe } from "../controllers/userController.js";
+import { getMe, updateProfile } from "../controllers/userController.js";
 
 const router = express.Router();
 
-router.get("/me", authMe);
+router.get("/me", getMe);
+router.patch("/upload", updateProfile);
 
 export default router;
