@@ -15,7 +15,7 @@ import { updateConversationAfterCreateMessage } from "../utils/messageHelper.js"
 */
 export const sendDirectMessage = async (req, res) => {
   try {
-    const { conversationId, receiverId, content } = req.body;
+    const { conversationId, receiverId, content, attachments } = req.body;
     //sender là user đang đăng nhập
     const senderId = req.user._id;
 
@@ -29,9 +29,11 @@ export const sendDirectMessage = async (req, res) => {
       });
     }
 
-    //nếu content rỗng thì trả về lỗi
-    if (!content) {
-      return res.status(400).json({ message: "Content is required" });
+    //nếu content hoặc attachments rỗng thì trả về lỗi
+    if (!content && (!attachments || attachments.length === 0)) {
+      return res
+        .status(400)
+        .json({ message: "Content or attachments are required" });
     }
 
     if (!conversation) {
@@ -78,7 +80,7 @@ export const sendDirectMessage = async (req, res) => {
 */
 export const sendGroupMessage = async (req, res) => {
   try {
-    const { conversationId, content } = req.body;
+    const { conversationId, content, attachments } = req.body;
     const senderId = req.user._id;
 
     // kiểm tra conversationId và content có tồn tại không
@@ -86,8 +88,8 @@ export const sendGroupMessage = async (req, res) => {
       return res.status(400).json({ message: "Conversation Id is required" });
     }
 
-    if (!content) {
-      return res.status(400).json({ message: "Content is required" });
+    if (!content && (!attachments || attachments.length === 0)) {
+      return res.status(400).json({ message: "Content are required" });
     }
 
     let conversation;
@@ -103,12 +105,12 @@ export const sendGroupMessage = async (req, res) => {
       return res.status(404).json({ message: "Group conversation not found" });
     }
 
-    const isSenderInGroup = await Conversation.exists({
+    const isMemberInGroup = await Conversation.exists({
       _id: conversationId,
       "participants.userId": senderId,
     });
 
-    if (!isSenderInGroup) {
+    if (!isMemberInGroup) {
       return res
         .status(403)
         .json({ message: "You are not a member of this group" });
