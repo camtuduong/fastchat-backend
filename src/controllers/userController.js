@@ -1,4 +1,4 @@
-export const authMe = async (req, res) => {
+export const getMe = async (req, res) => {
   try {
     return res
       .status(200)
@@ -8,3 +8,7 @@ export const authMe = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+export const updateProfile = async (req, res) => {};
+
+export const uploadAvatar = async (req, res) => {};

@@ -1,6 +1,7 @@
 import Friend from "../models/Friend.js";
 import User from "../models/User.js";
 import FriendRequest from "../models/FriendRequest.js";
+import { getFriend } from "../utils/friendHelper.js";
 
 export const sendFriendRequest = async (req, res) => {
   try {
@@ -137,30 +138,47 @@ export const declineFriendRequest = async (req, res) => {
   }
 };
 
+/*
+  ===========Lấy danh sách bạn bè===========
+  - kiểm tra xem có query displayName không, nếu có thì lọc danh sách bạn bè theo tên hiển thị
+  - trả về danh sách bạn bè
+ */
 export const getAllFriends = async (req, res) => {
   try {
     const userId = req.user._id;
+    const searchName = req.query.username || "";
 
     //tìm tất cả mối quan hệ với UserId
     const friendships = await Friend.find({
       $or: [{ userA: userId }, { userB: userId }],
     })
-      .populate("userA", "_id displayName avatarUrl")
-      .populate("userB", "_id displayName avatarUrl")
+      .populate("userA", "_id displayName")
+      .populate("userB", "_id displayName")
       .lean();
 
     if (!friendships.length) {
-      return res.status(200).json({ friends: [] });
+      return res
+        .status(200)
+        .json({ message: "No friends available", friends: [] });
     }
 
     //trả danh sách bạn bè
     const friends = friendships.map((friendship) => {
-      friendship.userA._id.toString() === userId.toString()
-        ? friendship.userB
-        : friendship.userA;
+      return getFriend(friendship.userA, friendship.userB, userId);
     });
 
-    return res.status(200).json({ friends });
+    let friendListAfterSearch;
+    if (searchName) {
+      friendListAfterSearch = friends.filter((friend) => {
+        return friend.displayName
+          .toLowerCase()
+          .includes(searchName.toLowerCase());
+      });
+    }
+
+    return res
+      .status(200)
+      .json({ friends: searchName ? friendListAfterSearch : friends });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });
