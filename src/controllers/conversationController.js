@@ -99,12 +99,6 @@ export const createNewConversation = async function (req, res) {
     //kiểm tra xem đã có cuộc trò chuyện giữa các thành viên trong DB chưa
     let isExistingConversation;
 
-    const x = await Conversation.findOne({
-      type: "direct",
-      "participants.userId": { $all: [senderId, participants[0]] },
-    });
-
-    console.log("x:", x);
     if (type === "direct" && participants.length === 1) {
       isExistingConversation = await Conversation.findOne({
         type: "direct",
@@ -116,8 +110,6 @@ export const createNewConversation = async function (req, res) {
         "participants.userId": { $all: [senderId, ...participants] },
       });
     }
-
-    console.log("isExistingConversation:", isExistingConversation);
 
     if (isExistingConversation) {
       return res.status(400).json({

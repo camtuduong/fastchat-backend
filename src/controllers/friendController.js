@@ -115,8 +115,6 @@ export const declineFriendRequest = async (req, res) => {
     const { requestId } = req.params;
     const userId = req.user._id;
 
-    console.log("Decline requestId:", requestId, "UserId:", userId);
-
     //tìm yêu cầu kết bạn
     const request = await FriendRequest.findById(requestId);
     if (!request) {

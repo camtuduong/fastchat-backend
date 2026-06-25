@@ -249,8 +249,6 @@ export const refreshToken = async (req, res) => {
       return res.status(401).json({ message: "Session not found or expired" });
     }
 
-    console.log("session", session);
-
     //tạo access token mới
     const newAccessToken = jwt.sign(
       { userId: session.userId },
