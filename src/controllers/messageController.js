@@ -1,5 +1,7 @@
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
+import User from "../models/User.js";
+
 import { updateConversationAfterCreateMessage } from "../utils/messageHelper.js";
 
 /*
@@ -15,18 +17,12 @@ import { updateConversationAfterCreateMessage } from "../utils/messageHelper.js"
 */
 export const sendDirectMessage = async (req, res) => {
   try {
-    const { conversationId, receiverId, content, attachments } = req.body;
+    const { receiverId, content, attachments } = req.body;
     //sender là user đang đăng nhập
     const senderId = req.user._id;
 
-    //tìm kiếm conversation giữa sender và receiver
-    let conversation;
-
-    if (conversationId) {
-      conversation = await Conversation.findOne({
-        _id: conversationId,
-        type: "direct",
-      });
+    if (!receiverId) {
+      return res.status(400).json({ message: "ReceiverId is required" });
     }
 
     //nếu content hoặc attachments rỗng thì trả về lỗi
@@ -35,14 +31,37 @@ export const sendDirectMessage = async (req, res) => {
         .status(400)
         .json({ message: "Content or attachments are required" });
     }
+    //tìm kiếm receiverId trong DB
+    const receiver = await User.findById(receiverId);
+
+    if (!receiver) {
+      return res.status(404).json({ message: "Receiver not found" });
+    }
+
+    let conversation;
+
+    if (receiver) {
+      conversation = await Conversation.findOne({
+        type: "direct",
+        "participants.userId": { $all: [senderId, receiver._id] },
+      });
+    }
 
     if (!conversation) {
       //nếu không có conversation thì tạo mới
       conversation = await Conversation.create({
         type: "direct",
         participants: [
-          { userId: senderId, joinedAt: new Date() },
-          { userId: receiverId, joinedAt: new Date() },
+          {
+            userId: senderId,
+            joinedAt: new Date(),
+            username: req.user.username,
+          },
+          {
+            userId: receiverId,
+            joinedAt: new Date(),
+            username: receiver.username,
+          },
         ],
         lastMessageAt: new Date(),
         unreadCount: new Map(),
@@ -51,7 +70,10 @@ export const sendDirectMessage = async (req, res) => {
 
     const message = await Message.create({
       conversationId: conversation._id,
-      senderId,
+      sender: {
+        userId: senderId,
+        username: req.user.username,
+      },
       content,
     });
 
@@ -118,7 +140,10 @@ export const sendGroupMessage = async (req, res) => {
 
     const message = await Message.create({
       conversationId: conversation._id,
-      senderId,
+      sender: {
+        userId: senderId,
+        username: req.user.username,
+      },
       content,
     });
 

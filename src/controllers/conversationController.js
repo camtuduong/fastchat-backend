@@ -96,6 +96,12 @@ export const createNewConversation = async function (req, res) {
       return res.status(400).json({ message: "Participants are required" });
     }
 
+    if (type === "group" && participants.length <= 1) {
+      return res.status(400).json({
+        message: "A group conversation must have at least 2 participants",
+      });
+    }
+
     //kiểm tra xem đã có cuộc trò chuyện giữa các thành viên trong DB chưa
     let isExistingConversation;
 
@@ -124,6 +130,11 @@ export const createNewConversation = async function (req, res) {
         { userId: senderId, joinedAt: new Date() },
         ...participants.map((userId) => ({ userId, joinedAt: new Date() })),
       ],
+      group: {
+        name: type === "group" ? req.body.groupName || "New Group" : undefined,
+        createdAt: new Date(),
+        createdBy: senderId,
+      },
     });
 
     return res.status(200).json({
