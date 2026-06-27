@@ -179,3 +179,35 @@ export const seenConversation = async function (req, res) {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+export const getConversationById = async function (req, res) {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user._id;
+
+    if (!conversationId) {
+      return res.status(400).json({ message: "Conversation Id is required" });
+    }
+
+    const isMember = await Conversation.exists({
+      _id: conversationId,
+      "participants.userId": userId,
+    });
+
+    if (!isMember) {
+      return res
+        .status(403)
+        .json({ message: "You are not a member of this conversation" });
+    }
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    return res.status(200).json({ conversation });
+  } catch (error) {
+    console.error("Error fetching conversation by ID:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};

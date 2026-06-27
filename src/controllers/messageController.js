@@ -17,12 +17,14 @@ import { updateConversationAfterCreateMessage } from "../utils/messageHelper.js"
 */
 export const sendDirectMessage = async (req, res) => {
   try {
-    const { receiverId, content, attachments } = req.body;
+    const { conversationId, receiverId, content, attachments } = req.body;
     //sender là user đang đăng nhập
     const senderId = req.user._id;
 
-    if (!receiverId) {
-      return res.status(400).json({ message: "ReceiverId is required" });
+    if (!receiverId && !conversationId) {
+      return res
+        .status(400)
+        .json({ message: "ReceiverId or ConversationId is required" });
     }
 
     //nếu content hoặc attachments rỗng thì trả về lỗi
@@ -31,41 +33,56 @@ export const sendDirectMessage = async (req, res) => {
         .status(400)
         .json({ message: "Content or attachments are required" });
     }
-    //tìm kiếm receiverId trong DB
-    const receiver = await User.findById(receiverId);
-
-    if (!receiver) {
-      return res.status(404).json({ message: "Receiver not found" });
-    }
 
     let conversation;
 
-    if (receiver) {
+    //nếu có conversationId thì tìm kiếm conversation trong DB
+    if (conversationId) {
       conversation = await Conversation.findOne({
+        _id: conversationId,
         type: "direct",
-        "participants.userId": { $all: [senderId, receiver._id] },
       });
     }
 
-    if (!conversation) {
-      //nếu không có conversation thì tạo mới
-      conversation = await Conversation.create({
-        type: "direct",
-        participants: [
-          {
-            userId: senderId,
-            joinedAt: new Date(),
-            username: req.user.username,
-          },
-          {
-            userId: receiverId,
-            joinedAt: new Date(),
-            username: receiver.username,
-          },
-        ],
-        lastMessageAt: new Date(),
-        unreadCount: new Map(),
-      });
+    //nếu không tìm thấy conversation và không có receiverId thì trả về lỗi
+    if (!conversation && !receiverId) {
+      return res
+        .status(404)
+        .json({ message: "Conversation not found, please create a new one" });
+    }
+
+    if (receiverId && !conversation) {
+      const receiver = await User.findById(receiverId);
+
+      if (!receiver) {
+        return res.status(404).json({ message: "Receiver not found" });
+      } else {
+        conversation = await Conversation.findOne({
+          type: "direct",
+          "participants.userId": { $all: [senderId, receiver._id] },
+        });
+      }
+
+      //nếu không tìm thấy conversation và có receiverId thì tạo mới
+      if (!conversation && receiverId) {
+        conversation = await Conversation.create({
+          type: "direct",
+          participants: [
+            {
+              userId: senderId,
+              joinedAt: new Date(),
+              username: req.user.username,
+            },
+            {
+              userId: receiverId,
+              joinedAt: new Date(),
+              username: receiver.username,
+            },
+          ],
+          lastMessageAt: new Date(),
+          unreadCount: new Map(),
+        });
+      }
     }
 
     const message = await Message.create({
