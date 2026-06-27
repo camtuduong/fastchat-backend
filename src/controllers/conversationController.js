@@ -96,15 +96,15 @@ export const createNewConversation = async function (req, res) {
       return res.status(400).json({ message: "Participants are required" });
     }
 
+    if (type === "group" && participants.length <= 1) {
+      return res.status(400).json({
+        message: "A group conversation must have at least 2 participants",
+      });
+    }
+
     //kiểm tra xem đã có cuộc trò chuyện giữa các thành viên trong DB chưa
     let isExistingConversation;
 
-    const x = await Conversation.findOne({
-      type: "direct",
-      "participants.userId": { $all: [senderId, participants[0]] },
-    });
-
-    console.log("x:", x);
     if (type === "direct" && participants.length === 1) {
       isExistingConversation = await Conversation.findOne({
         type: "direct",
@@ -116,8 +116,6 @@ export const createNewConversation = async function (req, res) {
         "participants.userId": { $all: [senderId, ...participants] },
       });
     }
-
-    console.log("isExistingConversation:", isExistingConversation);
 
     if (isExistingConversation) {
       return res.status(400).json({
@@ -132,6 +130,11 @@ export const createNewConversation = async function (req, res) {
         { userId: senderId, joinedAt: new Date() },
         ...participants.map((userId) => ({ userId, joinedAt: new Date() })),
       ],
+      group: {
+        name: type === "group" ? req.body.groupName || "New Group" : undefined,
+        createdAt: new Date(),
+        createdBy: senderId,
+      },
     });
 
     return res.status(200).json({
@@ -173,6 +176,38 @@ export const seenConversation = async function (req, res) {
     return res.status(200).json({ message: "Conversation marked as seen" });
   } catch (error) {
     console.error("Error marking conversation as seen:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const getConversationById = async function (req, res) {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user._id;
+
+    if (!conversationId) {
+      return res.status(400).json({ message: "Conversation Id is required" });
+    }
+
+    const isMember = await Conversation.exists({
+      _id: conversationId,
+      "participants.userId": userId,
+    });
+
+    if (!isMember) {
+      return res
+        .status(403)
+        .json({ message: "You are not a member of this conversation" });
+    }
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    return res.status(200).json({ conversation });
+  } catch (error) {
+    console.error("Error fetching conversation by ID:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };

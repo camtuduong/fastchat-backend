@@ -1,5 +1,22 @@
 import mongoose from "mongoose";
 
+const senderSchema = new mongoose.Schema(
+  {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    username: {
+      type: mongoose.Schema.Types.String,
+      ref: "User",
+    },
+  },
+  {
+    _id: false,
+  },
+);
+
 const messageSchema = new mongoose.Schema(
   {
     conversationId: {
@@ -8,9 +25,8 @@ const messageSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    senderId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+    sender: {
+      type: senderSchema,
       required: true,
     },
     content: { type: String, trim: true },

@@ -226,3 +226,40 @@ export const signOut = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+export const refreshToken = async (req, res) => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+    const deviceId = req.cookies.deviceId;
+
+    if (!refreshToken || !deviceId) {
+      return res
+        .status(401)
+        .json({ message: "Refresh token or deviceId is missing" });
+    }
+
+    //Tìm session tương ứng với refresh token và deviceId
+    const session = await Session.findOne({
+      deviceId,
+      revokedAt: null,
+      expiresAt: { $gt: new Date() }, //lọc session lớn hơn thời điểm hiện tại
+    });
+
+    if (!session) {
+      return res.status(401).json({ message: "Session not found or expired" });
+    }
+
+    //tạo access token mới
+    const newAccessToken = jwt.sign(
+      { userId: session.userId },
+      env.ACCESS_TOKEN_SECRET,
+      {
+        expiresIn: ACCESS_TOKEN_EXPIRES_IN,
+      },
+    );
+    return res.status(200).json({ accessToken: newAccessToken });
+  } catch (error) {
+    console.log("refreshToken error", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
