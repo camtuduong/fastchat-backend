@@ -211,3 +211,19 @@ export const getConversationById = async function (req, res) {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+export const getUserConversationsForSocket = async function (userId) {
+  try {
+    const conversations = await Conversation.find(
+      {
+        "participants.userId": userId,
+      },
+      { _id: 1 },
+    );
+
+    return conversations.map((conversation) => conversation._id.toString());
+  } catch (error) {
+    console.error("Error fetching user conversations for socket:", error);
+    throw new Error("Internal server error");
+  }
+};

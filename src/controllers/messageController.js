@@ -1,9 +1,12 @@
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
+import {
+  emitNewMessage,
+  updateConversationAfterCreateMessage,
+} from "../utils/messageHelper.js";
 
-import { updateConversationAfterCreateMessage } from "../utils/messageHelper.js";
-
+// Lấy instance của Socket.IO từ socket/index.js
 /*
   =============Gửi tin nhắn tới 1 cá nhân(1-1)================
   - Kiểm tra xem conversationId có tồn tại không?
@@ -20,6 +23,7 @@ export const sendDirectMessage = async (req, res) => {
     const { conversationId, receiverId, content, attachments } = req.body;
     //sender là user đang đăng nhập
     const senderId = req.user._id;
+    const io = req.app.get("io");
 
     if (!receiverId && !conversationId) {
       return res
@@ -99,6 +103,7 @@ export const sendDirectMessage = async (req, res) => {
     //lưu lại tất cả thay đổi
     await conversation.save();
 
+    emitNewMessage(io, conversation, message);
     res.status(201).json({ message: "Message sent successfully" });
   } catch (error) {
     console.error(error);
@@ -121,6 +126,7 @@ export const sendGroupMessage = async (req, res) => {
   try {
     const { conversationId, content, attachments } = req.body;
     const senderId = req.user._id;
+    const io = req.app.get("io");
 
     // kiểm tra conversationId và content có tồn tại không
     if (!conversationId) {
@@ -166,6 +172,8 @@ export const sendGroupMessage = async (req, res) => {
 
     updateConversationAfterCreateMessage(conversation, message, senderId);
     await conversation.save();
+
+    emitNewMessage(io, conversation, message);
 
     res.status(201).json({ message: "Message sent successfully" });
   } catch (error) {
