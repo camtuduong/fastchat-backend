@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { normalizeText } from "../utils/normalizeText.js";
 
 const userSchema = new mongoose.Schema(
   {
@@ -18,6 +19,7 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
     },
     displayName: { type: String, required: true, trim: true },
+    displayNameNormalized: { type: String, trim: true },
     avatarUrl: { type: String, trim: true },
     avatarId: { type: String, trim: true },
     bio: { type: String, maxlength: 500 },
@@ -32,5 +34,13 @@ const userSchema = new mongoose.Schema(
     timestamps: true,
   },
 );
+
+userSchema.pre("save", function (next) {
+  if (this.isModified("displayName")) {
+    this.displayNameNormalized = normalizeText(this.displayName);
+  }
+  next();
+});
+
 const User = mongoose.model("User", userSchema);
 export default User;

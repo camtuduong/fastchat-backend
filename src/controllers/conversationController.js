@@ -1,5 +1,6 @@
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
+import User from "../models/User.js";
 import { getNextCursor } from "../utils/paginationHelper.js";
 
 /* 
@@ -124,14 +125,25 @@ export const createNewConversation = async function (req, res) {
       });
     }
 
+    //cần add thêm username của các thành viên vào participants để hiển thị tên người dùng trong cuộc trò chuyện
+    const participantsWithUsernames = await Promise.all(
+      participants.map(async (userId) => {
+        const user = await User.findById(userId);
+        if (!user) {
+          throw new Error(`User with ID ${userId} not found`);
+        }
+        return { userId, username: user.username, joinedAt: new Date() };
+      }),
+    );
+
     const newConversation = await Conversation.create({
       type,
       participants: [
-        { userId: senderId, joinedAt: new Date() },
-        ...participants.map((userId) => ({ userId, joinedAt: new Date() })),
+        { userId: senderId, username: req.user.username, joinedAt: new Date() },
+        ...participantsWithUsernames,
       ],
       group: {
-        name: type === "group" ? req.body.groupName || "New Group" : undefined,
+        name: type === "group" ? req.body.groupName : undefined,
         createdAt: new Date(),
         createdBy: senderId,
       },
@@ -209,5 +221,21 @@ export const getConversationById = async function (req, res) {
   } catch (error) {
     console.error("Error fetching conversation by ID:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const getUserConversationsForSocket = async function (userId) {
+  try {
+    const conversations = await Conversation.find(
+      {
+        "participants.userId": userId,
+      },
+      { _id: 1 },
+    );
+
+    return conversations.map((conversation) => conversation._id.toString());
+  } catch (error) {
+    console.error("Error fetching user conversations for socket:", error);
+    throw new Error("Internal server error");
   }
 };
