@@ -13,7 +13,9 @@ import { getNextCursor } from "../utils/paginationHelper.js";
 export const getMessagesInConversation = async function (req, res) {
   try {
     const { conversationId } = req.params;
-    const { cursor } = req.query;
+    const cursor = req.query.cursor;
+
+    console.log("cursor", cursor);
     const filter = { conversationId };
 
     if (!conversationId) {
@@ -37,7 +39,7 @@ export const getMessagesInConversation = async function (req, res) {
 
     const messages = await Message.find(filter)
       .sort({ createdAt: -1 })
-      .limit(20);
+      .limit(40);
 
     const nextCursor = getNextCursor(messages, "createdAt");
 
