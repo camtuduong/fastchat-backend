@@ -15,7 +15,6 @@ export const getMessagesInConversation = async function (req, res) {
     const { conversationId } = req.params;
     const cursor = req.query.cursor;
 
-    console.log("cursor", cursor);
     const filter = { conversationId };
 
     if (!conversationId) {
