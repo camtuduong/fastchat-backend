@@ -152,7 +152,7 @@ export const createNewConversation = async function (req, res) {
 
     return res.status(200).json({
       message: "Conversation created successfully",
-      conversationId: newConversation._id,
+      conversation: newConversation._id,
     });
   } catch (error) {
     console.error("Error creating new conversation:", error);
