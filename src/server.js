@@ -16,6 +16,8 @@ import swaggerUI from "swagger-ui-express";
 import fs from "fs";
 import cors from "cors";
 import { v2 as cloudinary } from "cloudinary";
+import cron from "node-cron";
+import { clearConversation } from "./jobs/clearConversation.job.js";
 
 dotenv.config();
 
@@ -74,6 +76,10 @@ app.use("/api/users", userRoute);
 app.use("/api/friends", friendRoute);
 app.use("/api/messages", messageRoute);
 app.use("/api/conversations", conversationRoute);
+
+cron.schedule("0 9 * * *", async () => {
+  await clearConversation();
+});
 
 connectDB().then(() => {
   server.listen(PORT, () => {
