@@ -6,6 +6,8 @@ import {
   updateConversationAfterCreateMessage,
 } from "../utils/messageHelper.js";
 
+const MAX_CONTENT_LENGTH = 10000; // Độ dài tối đa của content
+
 // Lấy instance của Socket.IO từ socket/index.js
 /*
   =============Gửi tin nhắn tới 1 cá nhân(1-1)================
@@ -36,6 +38,12 @@ export const sendDirectMessage = async (req, res) => {
       return res
         .status(400)
         .json({ message: "Content or attachments are required" });
+    }
+
+    if (content.length > MAX_CONTENT_LENGTH) {
+      return res.status(400).json({
+        message: `Content exceeds maximum length of ${MAX_CONTENT_LENGTH} characters`,
+      });
     }
 
     let conversation;
@@ -135,6 +143,12 @@ export const sendGroupMessage = async (req, res) => {
 
     if (!content && (!attachments || attachments.length === 0)) {
       return res.status(400).json({ message: "Content are required" });
+    }
+
+    if (content.length > MAX_CONTENT_LENGTH) {
+      return res.status(400).json({
+        message: `Content exceeds maximum length of ${MAX_CONTENT_LENGTH} characters`,
+      });
     }
 
     let conversation;
