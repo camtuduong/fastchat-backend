@@ -21,6 +21,10 @@ export const updateConversationAfterCreateMessage = (
     const prevCount = conversation.unreadCount.get(memberId) || 0;
 
     conversation.unreadCount.set(memberId, isSender ? 0 : prevCount + 1);
+
+    p.set({
+      hidden: false,
+    });
   });
 };
 
@@ -31,6 +35,9 @@ export const emitNewMessage = (io, conversation, message) => {
       _id: conversation._id,
       lastMessage: conversation.lastMessage,
       lastMessageAt: conversation.lastMessageAt,
+      participants: conversation.participants.map((p) => ({
+        hidden: p.hidden,
+      })),
     },
     unreadCount: conversation.unreadCount,
   });

@@ -15,7 +15,9 @@ export const getMessagesInConversation = async function (req, res) {
     const { conversationId } = req.params;
     const cursor = req.query.cursor;
 
-    const filter = { conversationId };
+    const filter = {
+      conversationId,
+    };
 
     if (!conversationId) {
       return res.status(400).json({ message: "Conversation Id is required" });
@@ -32,8 +34,26 @@ export const getMessagesInConversation = async function (req, res) {
         .json({ message: "You are not a member of this conversation" });
     }
 
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      "participants.userId": req.user._id,
+    });
+
     if (cursor) {
       filter.createdAt = { $lt: new Date(cursor) };
+    }
+
+    if (conversation) {
+      const participant = conversation.participants.find(
+        (p) => p.userId.toString() === req.user._id.toString(),
+      );
+
+      if (participant.clearedAt) {
+        filter.createdAt = {
+          ...filter.createdAt,
+          $gt: participant.clearedAt,
+        };
+      }
     }
 
     const messages = await Message.find(filter)
@@ -52,7 +72,14 @@ export const getMessagesInConversation = async function (req, res) {
 export const getAllConversations = async function (req, res) {
   try {
     const { cursor } = req.query;
-    const filter = { "participants.userId": req.user._id };
+    const filter = {
+      participants: {
+        $elemMatch: {
+          userId: req.user._id,
+          hidden: { $ne: true },
+        },
+      },
+    };
 
     if (cursor) {
       filter.lastMessageAt = { $lt: new Date(cursor) };
@@ -238,5 +265,42 @@ export const getUserConversationsForSocket = async function (userId) {
   } catch (error) {
     console.error("Error fetching user conversations for socket:", error);
     throw new Error("Internal server error");
+  }
+};
+
+export const removeConversationForMe = async function (req, res) {
+  try {
+    const { conversationId } = req.params;
+
+    if (!conversationId) {
+      return res.status(400).json({ message: "Conversation Id is required" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      "participants.userId": req.user._id,
+    });
+
+    if (!conversation) {
+      return res
+        .status(404)
+        .json({ message: "Conversation not found or you are not a member" });
+    }
+
+    // Cập nhật trạng thái ẩn và thời gian xóa cho người dùng hiện tại
+    await Conversation.updateOne(
+      { _id: conversationId, "participants.userId": req.user._id },
+      {
+        $set: {
+          "participants.$.hidden": true,
+          "participants.$.clearedAt": new Date(),
+        },
+      },
+    );
+
+    return res.status(200).json({ message: "Conversation deleted for user" });
+  } catch (error) {
+    console.error("Error deleting conversation for user:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };

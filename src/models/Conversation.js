@@ -15,6 +15,14 @@ const participantsSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.String,
       ref: "User",
     },
+    hidden: {
+      type: Boolean,
+      default: false,
+    },
+    clearedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     _id: false,
