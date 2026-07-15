@@ -206,12 +206,13 @@ export const seenConversation = async function (req, res) {
     }
 
     //cập nhật trạng thái đã xem của cuộc trò chuyện
-    conversation.set({
-      seenBy: [senderId],
-      unreadCount: { [senderId]: 0 }, // Reset unread count for the user
-    });
-
-    await conversation.save();
+    await Conversation.updateOne(
+      { _id: conversationId },
+      {
+        $addToSet: { seenBy: senderId },
+        $set: { [`unreadCount.${senderId}`]: 0 },
+      },
+    );
 
     return res.status(200).json({ message: "Conversation marked as seen" });
   } catch (error) {
