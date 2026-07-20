@@ -8,6 +8,7 @@ import userRoute from "./routes/userRoute.js";
 import friendRoute from "./routes/friendRoute.js";
 import messageRoute from "./routes/messageRoute.js";
 import conversationRoute from "./routes/conversationRoute.js";
+import stickerRoute from "./routes/stickerRouter.js";
 import { createSocketServer } from "./socket/index.js";
 
 import cookieParser from "cookie-parser";
@@ -23,7 +24,11 @@ dotenv.config();
 
 export const env = {
   ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET,
+  KLIPY_API_KEY_01: process.env.KLIPY_API_KEY_01,
+  KLIPY_API_KEY_02: process.env.KLIPY_API_KEY_02,
+  KLIPY_URL: process.env.KLIPY_URL,
 };
+
 const app = express();
 const server = http.createServer(app);
 
@@ -76,6 +81,7 @@ app.use("/api/users", userRoute);
 app.use("/api/friends", friendRoute);
 app.use("/api/messages", messageRoute);
 app.use("/api/conversations", conversationRoute);
+app.use("/api/stickers", stickerRoute);
 
 cron.schedule("0 9 * * *", async () => {
   await clearConversation();

@@ -40,7 +40,7 @@ export const sendDirectMessage = async (req, res) => {
         .json({ message: "Content or attachments are required" });
     }
 
-    if (content.length > MAX_CONTENT_LENGTH) {
+    if (content && content.length > MAX_CONTENT_LENGTH) {
       return res.status(400).json({
         message: `Content exceeds maximum length of ${MAX_CONTENT_LENGTH} characters`,
       });
@@ -104,6 +104,7 @@ export const sendDirectMessage = async (req, res) => {
         username: req.user.username,
       },
       content,
+      attachments,
     });
 
     updateConversationAfterCreateMessage(conversation, message, senderId);
@@ -182,6 +183,7 @@ export const sendGroupMessage = async (req, res) => {
         username: req.user.username,
       },
       content,
+      attachments,
     });
 
     updateConversationAfterCreateMessage(conversation, message, senderId);

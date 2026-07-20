@@ -23,6 +23,7 @@
   },
   "homepage": "https://github.com/camtuduong/fastchat-backend#readme",
   "dependencies": {
+    "axios": "^1.18.1",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.10.0",
     "cookie-parser": "^1.4.7",
