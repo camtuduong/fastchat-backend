@@ -38,6 +38,8 @@ const messageSchema = new mongoose.Schema(
           required: true,
         },
         url: { type: String, required: true },
+        id: { type: String, required: true },
+        name: { type: String, required: true },
       },
     ],
   },
