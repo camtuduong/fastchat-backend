@@ -2,8 +2,10 @@ import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
 import {
+  emitDeleteMessage,
   emitNewMessage,
   updateConversationAfterCreateMessage,
+  updateConversationAfterDeleteMessage,
 } from "../utils/messageHelper.js";
 
 const MAX_CONTENT_LENGTH = 10000; // Độ dài tối đa của content
@@ -192,6 +194,64 @@ export const sendGroupMessage = async (req, res) => {
     emitNewMessage(io, conversation, message);
 
     res.status(201).json({ message: "Message sent successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const deleteMessageWithEveryOne = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user._id;
+    const io = req.app.get("io");
+
+    if (!messageId) {
+      return res.status(400).json({ message: "Message Id is required" });
+    }
+
+    const message = await Message.findOne({
+      _id: messageId,
+      "sender.userId": userId,
+    });
+
+    const conversation = await Conversation.findById(message.conversationId);
+
+    if (!message) {
+      return res.status(404).json({ message: "Message not found" });
+    }
+
+    if (message.sender.userId.toString() !== userId.toString()) {
+      return res
+        .status(403)
+        .json({ message: "You are not authorized to delete this message" });
+    }
+
+    await Message.findByIdAndDelete(messageId);
+
+    const newLatestMessage = await Message.findOne({
+      conversationId: message.conversationId,
+    }).sort({ createdAt: -1 });
+
+    const isDeletingLastMessage =
+      conversation.lastMessage._id.toString() === messageId.toString();
+
+    updateConversationAfterDeleteMessage(
+      conversation,
+      messageId,
+      newLatestMessage,
+    );
+    await conversation.save();
+
+    emitDeleteMessage(
+      io,
+      conversation,
+      messageId,
+      newLatestMessage,
+      isDeletingLastMessage,
+    );
+
+    res.status(200).json({ message: "Message deleted successfully" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error" });

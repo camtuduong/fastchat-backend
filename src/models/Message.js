@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+const MAX_CONTENT_LENGTH = 10000;
+
 const senderSchema = new mongoose.Schema(
   {
     userId: {
@@ -17,19 +19,14 @@ const senderSchema = new mongoose.Schema(
   },
 );
 
-const messageSchema = new mongoose.Schema(
+const replySchema = new mongoose.Schema(
   {
-    conversationId: {
+    messageId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Conversation",
-      required: true,
-      index: true,
-    },
-    sender: {
-      type: senderSchema,
+      ref: "Message",
       required: true,
     },
-    content: { type: String, trim: true, maxlength: 10000 },
+    content: { type: String, trim: true, maxlength: MAX_CONTENT_LENGTH },
     attachments: [
       {
         type: {
@@ -42,6 +39,39 @@ const messageSchema = new mongoose.Schema(
         name: { type: String, required: true },
       },
     ],
+  },
+  { _id: false },
+);
+
+const messageSchema = new mongoose.Schema(
+  {
+    conversationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Conversation",
+      required: true,
+      index: true,
+    },
+    sender: {
+      type: senderSchema,
+      required: true,
+    },
+    content: { type: String, trim: true, maxlength: MAX_CONTENT_LENGTH },
+    attachments: [
+      {
+        type: {
+          type: String,
+          enum: ["image", "video", "file"],
+          required: true,
+        },
+        url: { type: String, required: true },
+        id: { type: String, required: true },
+        name: { type: String, required: true },
+      },
+    ],
+    replyTo: {
+      type: replySchema,
+      default: null,
+    },
   },
   { timestamps: true },
 );
