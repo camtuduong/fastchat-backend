@@ -103,7 +103,8 @@ export const sendDirectMessage = async (req, res) => {
       conversationId: conversation._id,
       sender: {
         userId: senderId,
-        username: req.user.username,
+        displayName: req.user.displayName,
+        avatarUrl: req.user.avatarUrl,
       },
       content,
       attachments,
@@ -182,7 +183,8 @@ export const sendGroupMessage = async (req, res) => {
       conversationId: conversation._id,
       sender: {
         userId: senderId,
-        username: req.user.username,
+        displayName: req.user.displayName,
+        avatarUrl: req.user.avatarUrl,
       },
       content,
       attachments,

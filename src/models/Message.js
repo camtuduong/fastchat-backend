@@ -9,9 +9,13 @@ const senderSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    username: {
-      type: mongoose.Schema.Types.String,
-      ref: "User",
+    displayName: {
+      type: String,
+      trim: true,
+    },
+    avatarUrl: {
+      type: String,
+      trim: true,
     },
   },
   {

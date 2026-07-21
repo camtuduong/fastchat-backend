@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
@@ -16,7 +17,7 @@ export const getMessagesInConversation = async function (req, res) {
     const cursor = req.query.cursor;
 
     const filter = {
-      conversationId,
+      conversationId: new mongoose.Types.ObjectId(conversationId),
     };
 
     if (!conversationId) {
@@ -56,9 +57,28 @@ export const getMessagesInConversation = async function (req, res) {
       }
     }
 
-    const messages = await Message.find(filter)
-      .sort({ createdAt: -1 })
-      .limit(40);
+    const messages = await Message.aggregate([
+      { $match: filter },
+      { $sort: { createdAt: -1 } },
+      { $limit: 40 },
+      {
+        $lookup: {
+          from: "users",
+          localField: "sender.userId",
+          foreignField: "_id",
+          as: "_senderUser",
+        },
+      },
+      {
+        $addFields: {
+          "sender.avatarUrl": { $arrayElemAt: ["$_senderUser.avatarUrl", 0] },
+          "sender.displayName": {
+            $arrayElemAt: ["$_senderUser.displayName", 0],
+          },
+        },
+      },
+      { $project: { _senderUser: 0 } },
+    ]);
 
     const nextCursor = getNextCursor(messages, "createdAt");
 

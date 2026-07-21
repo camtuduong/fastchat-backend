@@ -10,7 +10,11 @@ export const updateConversationAfterCreateMessage = (
     lastMessage: {
       _id: message._id,
       content: message.content,
-      senderId,
+      sender: {
+        userId: senderId,
+        displayName: message.sender.displayName,
+        avatarUrl: message.sender.avatarUrl,
+      },
       createdAt: message.createdAt,
     },
   });
