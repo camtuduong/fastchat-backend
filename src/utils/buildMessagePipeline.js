@@ -28,16 +28,53 @@ export const replyPipeline = [
   {
     $lookup: {
       from: "messages",
-      localField: "replyTo",
-      foreignField: "_id",
-      as: "replyTo",
+      let: { replyToId: "$replyTo" },
+      pipeline: [
+        {
+          $match: {
+            $expr: {
+              $eq: ["$_id", "$$replyToId"],
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "sender.userId",
+            foreignField: "_id",
+            as: "_senderUser",
+          },
+        },
+        {
+          $addFields: {
+            "sender.displayName": {
+              $arrayElemAt: ["$_senderUser.displayName", 0],
+            },
+            "sender.avatarUrl": {
+              $arrayElemAt: ["$_senderUser.avatarUrl", 0],
+            },
+          },
+        },
+        {
+          $project: {
+            _senderUser: 0,
+            replyTo: 0,
+          },
+        },
+      ],
+      as: "_replyTo",
     },
   },
   {
-    $set: {
+    $addFields: {
       replyTo: {
-        $arrayElemAt: ["$replyTo", 0],
+        $ifNull: [{ $arrayElemAt: ["$_replyTo", 0] }, null],
       },
+    },
+  },
+  {
+    $project: {
+      _replyTo: 0,
     },
   },
 ];
