@@ -1,6 +1,7 @@
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
+import { buildMessagePipeline } from "../utils/buildMessagePipeline.js";
 import {
   emitDeleteMessage,
   emitNewMessage,
@@ -24,7 +25,8 @@ const MAX_CONTENT_LENGTH = 10000; // Độ dài tối đa của content
 */
 export const sendDirectMessage = async (req, res) => {
   try {
-    const { conversationId, receiverId, content, attachments } = req.body;
+    const { conversationId, receiverId, content, attachments, replyTo } =
+      req.body;
     //sender là user đang đăng nhập
     const senderId = req.user._id;
     const io = req.app.get("io");
@@ -99,21 +101,49 @@ export const sendDirectMessage = async (req, res) => {
       }
     }
 
-    const message = await Message.create({
+    let replyMessage = null;
+
+    if (replyTo) {
+      replyMessage = await Message.findOne({
+        _id: replyTo,
+        conversationId: conversation._id,
+      });
+
+      if (!replyMessage) {
+        return res.status(404).json({
+          message: "Reply message not found",
+        });
+      }
+    }
+
+    const createdMessage = await Message.create({
       conversationId: conversation._id,
       sender: {
         userId: senderId,
-        displayName: req.user.displayName,
-        avatarUrl: req.user.avatarUrl,
       },
       content,
       attachments,
+      replyTo: replyTo ?? null,
     });
 
-    updateConversationAfterCreateMessage(conversation, message, senderId);
+    updateConversationAfterCreateMessage(
+      conversation,
+      createdMessage,
+      senderId,
+    );
 
     //lưu lại tất cả thay đổi
     await conversation.save();
+
+    // Lấy message đầy đủ (sender + replyTo)
+    const [message] = await Message.aggregate(
+      buildMessagePipeline(
+        {
+          _id: createdMessage._id,
+        },
+        1,
+      ),
+    );
 
     emitNewMessage(io, conversation, message);
     res.status(201).json({ message: "Message sent successfully" });
@@ -136,7 +166,7 @@ export const sendDirectMessage = async (req, res) => {
 */
 export const sendGroupMessage = async (req, res) => {
   try {
-    const { conversationId, content, attachments } = req.body;
+    const { conversationId, content, attachments, replyTo } = req.body;
     const senderId = req.user._id;
     const io = req.app.get("io");
 
@@ -179,7 +209,22 @@ export const sendGroupMessage = async (req, res) => {
         .json({ message: "You are not a member of this group" });
     }
 
-    const message = await Message.create({
+    let replyMessage = null;
+
+    if (replyTo && isMemberInGroup) {
+      replyMessage = await Message.findOne({
+        _id: replyTo,
+        conversationId: conversation._id,
+      });
+
+      if (!replyMessage) {
+        return res.status(404).json({
+          message: "Reply message not found",
+        });
+      }
+    }
+
+    const createdMessage = await Message.create({
       conversationId: conversation._id,
       sender: {
         userId: senderId,
@@ -188,11 +233,25 @@ export const sendGroupMessage = async (req, res) => {
       },
       content,
       attachments,
+      replyTo: replyTo ?? null,
     });
 
-    updateConversationAfterCreateMessage(conversation, message, senderId);
+    updateConversationAfterCreateMessage(
+      conversation,
+      createdMessage,
+      senderId,
+    );
     await conversation.save();
 
+    // Lấy message đầy đủ (sender + replyTo)
+    const [message] = await Message.aggregate(
+      buildMessagePipeline(
+        {
+          _id: createdMessage._id,
+        },
+        1,
+      ),
+    );
     emitNewMessage(io, conversation, message);
 
     res.status(201).json({ message: "Message sent successfully" });

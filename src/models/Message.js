@@ -23,30 +23,6 @@ const senderSchema = new mongoose.Schema(
   },
 );
 
-const replySchema = new mongoose.Schema(
-  {
-    messageId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Message",
-      required: true,
-    },
-    content: { type: String, trim: true, maxlength: MAX_CONTENT_LENGTH },
-    attachments: [
-      {
-        type: {
-          type: String,
-          enum: ["image", "video", "file"],
-          required: true,
-        },
-        url: { type: String, required: true },
-        id: { type: String, required: true },
-        name: { type: String, required: true },
-      },
-    ],
-  },
-  { _id: false },
-);
-
 const messageSchema = new mongoose.Schema(
   {
     conversationId: {
@@ -73,7 +49,8 @@ const messageSchema = new mongoose.Schema(
       },
     ],
     replyTo: {
-      type: replySchema,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
       default: null,
     },
   },
