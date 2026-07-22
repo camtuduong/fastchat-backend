@@ -63,9 +63,19 @@ const lastMessageSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
-    senderId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+    sender: {
+      userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+      avatarUrl: {
+        type: String,
+        trim: true,
+      },
+      displayName: {
+        type: String,
+        trim: true,
+      },
     },
     createdAt: {
       type: Date,

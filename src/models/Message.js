@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+const MAX_CONTENT_LENGTH = 10000;
+
 const senderSchema = new mongoose.Schema(
   {
     userId: {
@@ -7,9 +9,13 @@ const senderSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    username: {
-      type: mongoose.Schema.Types.String,
-      ref: "User",
+    displayName: {
+      type: String,
+      trim: true,
+    },
+    avatarUrl: {
+      type: String,
+      trim: true,
     },
   },
   {
@@ -29,7 +35,7 @@ const messageSchema = new mongoose.Schema(
       type: senderSchema,
       required: true,
     },
-    content: { type: String, trim: true, maxlength: 10000 },
+    content: { type: String, trim: true, maxlength: MAX_CONTENT_LENGTH },
     attachments: [
       {
         type: {
@@ -42,6 +48,11 @@ const messageSchema = new mongoose.Schema(
         name: { type: String, required: true },
       },
     ],
+    replyTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+      default: null,
+    },
   },
   { timestamps: true },
 );

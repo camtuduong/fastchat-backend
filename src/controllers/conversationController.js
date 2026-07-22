@@ -1,7 +1,9 @@
+import mongoose from "mongoose";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
 import { getNextCursor } from "../utils/paginationHelper.js";
+import { buildMessagePipeline } from "../utils/buildMessagePipeline.js";
 
 /* 
     =============Lấy tin nhắn trong cuộc trò chuyện================
@@ -16,7 +18,7 @@ export const getMessagesInConversation = async function (req, res) {
     const cursor = req.query.cursor;
 
     const filter = {
-      conversationId,
+      conversationId: new mongoose.Types.ObjectId(conversationId),
     };
 
     if (!conversationId) {
@@ -56,9 +58,7 @@ export const getMessagesInConversation = async function (req, res) {
       }
     }
 
-    const messages = await Message.find(filter)
-      .sort({ createdAt: -1 })
-      .limit(40);
+    const messages = await Message.aggregate(buildMessagePipeline(filter, 40));
 
     const nextCursor = getNextCursor(messages, "createdAt");
 

@@ -1,3 +1,4 @@
+//update db
 export const updateConversationAfterCreateMessage = (
   conversation,
   message,
@@ -9,7 +10,11 @@ export const updateConversationAfterCreateMessage = (
     lastMessage: {
       _id: message._id,
       content: message.content,
-      senderId,
+      sender: {
+        userId: senderId,
+        displayName: message.sender.displayName,
+        avatarUrl: message.sender.avatarUrl,
+      },
       createdAt: message.createdAt,
     },
   });
@@ -28,6 +33,7 @@ export const updateConversationAfterCreateMessage = (
   });
 };
 
+//gửi socket
 export const emitNewMessage = (io, conversation, message) => {
   io.to(conversation._id.toString()).emit("new-message", {
     message,
@@ -40,5 +46,60 @@ export const emitNewMessage = (io, conversation, message) => {
       })),
     },
     unreadCount: conversation.unreadCount,
+  });
+};
+
+//update db
+export const updateConversationAfterDeleteMessage = (
+  conversation,
+  messageId,
+  newLatestMessage,
+) => {
+  if (conversation.lastMessage._id.toString() === messageId.toString()) {
+    if (newLatestMessage) {
+      conversation.set({
+        lastMessage: {
+          _id: newLatestMessage._id,
+          content: newLatestMessage.content,
+          senderId: newLatestMessage.sender.userId,
+          createdAt: newLatestMessage.createdAt,
+        },
+        lastMessageAt: newLatestMessage.createdAt,
+      });
+      return;
+    }
+
+    conversation.set({
+      lastMessage: null,
+      lastMessageAt: null,
+    });
+  }
+};
+
+//gửi socket
+export const emitDeleteMessage = (
+  io,
+  conversation,
+  messageId,
+  newLatestMessage,
+  isDeletingLastMessage,
+) => {
+  io.to(conversation._id.toString()).emit("delete-message", {
+    ...(isDeletingLastMessage
+      ? {
+          conversation: {
+            _id: conversation._id,
+            lastMessage: newLatestMessage
+              ? {
+                  _id: newLatestMessage._id,
+                  content: newLatestMessage.content,
+                  senderId: newLatestMessage.sender.userId,
+                  createdAt: newLatestMessage.createdAt,
+                }
+              : null,
+            lastMessageAt: newLatestMessage ? newLatestMessage.createdAt : null,
+          },
+        }
+      : {}),
   });
 };

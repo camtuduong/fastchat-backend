@@ -1,9 +1,12 @@
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
+import { buildMessagePipeline } from "../utils/buildMessagePipeline.js";
 import {
+  emitDeleteMessage,
   emitNewMessage,
   updateConversationAfterCreateMessage,
+  updateConversationAfterDeleteMessage,
 } from "../utils/messageHelper.js";
 
 const MAX_CONTENT_LENGTH = 10000; // Độ dài tối đa của content
@@ -22,7 +25,8 @@ const MAX_CONTENT_LENGTH = 10000; // Độ dài tối đa của content
 */
 export const sendDirectMessage = async (req, res) => {
   try {
-    const { conversationId, receiverId, content, attachments } = req.body;
+    const { conversationId, receiverId, content, attachments, replyTo } =
+      req.body;
     //sender là user đang đăng nhập
     const senderId = req.user._id;
     const io = req.app.get("io");
@@ -97,20 +101,49 @@ export const sendDirectMessage = async (req, res) => {
       }
     }
 
-    const message = await Message.create({
+    let replyMessage = null;
+
+    if (replyTo) {
+      replyMessage = await Message.findOne({
+        _id: replyTo,
+        conversationId: conversation._id,
+      });
+
+      if (!replyMessage) {
+        return res.status(404).json({
+          message: "Reply message not found",
+        });
+      }
+    }
+
+    const createdMessage = await Message.create({
       conversationId: conversation._id,
       sender: {
         userId: senderId,
-        username: req.user.username,
       },
       content,
       attachments,
+      replyTo: replyTo ?? null,
     });
 
-    updateConversationAfterCreateMessage(conversation, message, senderId);
+    updateConversationAfterCreateMessage(
+      conversation,
+      createdMessage,
+      senderId,
+    );
 
     //lưu lại tất cả thay đổi
     await conversation.save();
+
+    // Lấy message đầy đủ (sender + replyTo)
+    const [message] = await Message.aggregate(
+      buildMessagePipeline(
+        {
+          _id: createdMessage._id,
+        },
+        1,
+      ),
+    );
 
     emitNewMessage(io, conversation, message);
     res.status(201).json({ message: "Message sent successfully" });
@@ -133,7 +166,7 @@ export const sendDirectMessage = async (req, res) => {
 */
 export const sendGroupMessage = async (req, res) => {
   try {
-    const { conversationId, content, attachments } = req.body;
+    const { conversationId, content, attachments, replyTo } = req.body;
     const senderId = req.user._id;
     const io = req.app.get("io");
 
@@ -176,22 +209,110 @@ export const sendGroupMessage = async (req, res) => {
         .json({ message: "You are not a member of this group" });
     }
 
-    const message = await Message.create({
+    let replyMessage = null;
+
+    if (replyTo && isMemberInGroup) {
+      replyMessage = await Message.findOne({
+        _id: replyTo,
+        conversationId: conversation._id,
+      });
+
+      if (!replyMessage) {
+        return res.status(404).json({
+          message: "Reply message not found",
+        });
+      }
+    }
+
+    const createdMessage = await Message.create({
       conversationId: conversation._id,
       sender: {
         userId: senderId,
-        username: req.user.username,
+        displayName: req.user.displayName,
+        avatarUrl: req.user.avatarUrl,
       },
       content,
       attachments,
+      replyTo: replyTo ?? null,
     });
 
-    updateConversationAfterCreateMessage(conversation, message, senderId);
+    updateConversationAfterCreateMessage(
+      conversation,
+      createdMessage,
+      senderId,
+    );
     await conversation.save();
 
+    // Lấy message đầy đủ (sender + replyTo)
+    const [message] = await Message.aggregate(
+      buildMessagePipeline(
+        {
+          _id: createdMessage._id,
+        },
+        1,
+      ),
+    );
     emitNewMessage(io, conversation, message);
 
     res.status(201).json({ message: "Message sent successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const deleteMessageWithEveryOne = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user._id;
+    const io = req.app.get("io");
+
+    if (!messageId) {
+      return res.status(400).json({ message: "Message Id is required" });
+    }
+
+    const message = await Message.findOne({
+      _id: messageId,
+      "sender.userId": userId,
+    });
+
+    const conversation = await Conversation.findById(message.conversationId);
+
+    if (!message) {
+      return res.status(404).json({ message: "Message not found" });
+    }
+
+    if (message.sender.userId.toString() !== userId.toString()) {
+      return res
+        .status(403)
+        .json({ message: "You are not authorized to delete this message" });
+    }
+
+    await Message.findByIdAndDelete(messageId);
+
+    const newLatestMessage = await Message.findOne({
+      conversationId: message.conversationId,
+    }).sort({ createdAt: -1 });
+
+    const isDeletingLastMessage =
+      conversation.lastMessage._id.toString() === messageId.toString();
+
+    updateConversationAfterDeleteMessage(
+      conversation,
+      messageId,
+      newLatestMessage,
+    );
+    await conversation.save();
+
+    emitDeleteMessage(
+      io,
+      conversation,
+      messageId,
+      newLatestMessage,
+      isDeletingLastMessage,
+    );
+
+    res.status(200).json({ message: "Message deleted successfully" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error" });
