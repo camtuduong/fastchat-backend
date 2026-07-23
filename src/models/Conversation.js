@@ -11,9 +11,9 @@ const participantsSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
-    username: {
-      type: mongoose.Schema.Types.String,
-      ref: "User",
+    displayName: {
+      type: String,
+      trim: true,
     },
     hidden: {
       type: Boolean,
