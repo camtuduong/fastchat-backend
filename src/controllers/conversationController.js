@@ -139,12 +139,13 @@ export const createNewConversation = async function (req, res) {
         type: "direct",
         "participants.userId": { $all: [senderId, participants[0]] },
       });
-    } else if (type === "group" && participants.length >= 1) {
-      isExistingConversation = await Conversation.findOne({
-        type: "group",
-        "participants.userId": { $all: [senderId, ...participants] },
-      });
     }
+    // else if (type === "group" && participants.length >= 1) {
+    //   isExistingConversation = await Conversation.findOne({
+    //     type: "group",
+    //     "participants.userId": { $all: [senderId, ...participants] },
+    //   });
+    // }
 
     if (isExistingConversation) {
       return res.status(400).json({
