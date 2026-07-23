@@ -168,7 +168,11 @@ export const createNewConversation = async function (req, res) {
     const newConversation = await Conversation.create({
       type,
       participants: [
-        { userId: senderId, username: req.user.username, joinedAt: new Date() },
+        {
+          userId: senderId,
+          displayName: req.user.displayName,
+          joinedAt: new Date(),
+        },
         ...participantsWithUsernames,
       ],
       group: {
