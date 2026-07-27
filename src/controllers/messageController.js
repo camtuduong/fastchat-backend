@@ -1,6 +1,5 @@
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
-import User from "../models/User.js";
 import { buildMessagePipeline } from "../utils/buildMessagePipeline.js";
 import {
   emitDeleteMessage,
@@ -23,15 +22,16 @@ const MAX_CONTENT_LENGTH = 10000; // Độ dài tối đa của content
   - Lưu lại tất cả thay đổi
   - Trả về kết quả thành công
 */
-export const sendDirectMessage = async (req, res) => {
+
+//new flow khi accept rq thì tạo luôn conversation hoặc tạo bằng cách tìm kiếm và tạo
+export const sendMessage = async (req, res) => {
   try {
-    const { conversationId, receiverId, content, attachments, replyTo } =
-      req.body;
+    const { conversationId, content, attachments, replyTo } = req.body;
     //sender là user đang đăng nhập
     const senderId = req.user._id;
     const io = req.app.get("io");
 
-    if (!receiverId && !conversationId) {
+    if (!conversationId) {
       return res
         .status(400)
         .json({ message: "ReceiverId or ConversationId is required" });
@@ -54,56 +54,29 @@ export const sendDirectMessage = async (req, res) => {
 
     //nếu có conversationId thì tìm kiếm conversation trong DB
     if (conversationId) {
-      conversation = await Conversation.findOne({
-        _id: conversationId,
-        type: "direct",
-      });
+      conversation = await Conversation.findById(conversationId);
     }
 
-    //nếu không tìm thấy conversation và không có receiverId thì trả về lỗi
-    if (!conversation && !receiverId) {
+    //nếu không tìm thấy conversation thì trả về lỗi
+    if (!conversation) {
       return res
         .status(404)
         .json({ message: "Conversation not found, please create a new one" });
     }
 
-    if (receiverId && !conversation) {
-      const receiver = await User.findById(receiverId);
-
-      if (!receiver) {
-        return res.status(404).json({ message: "Receiver not found" });
-      } else {
-        conversation = await Conversation.findOne({
-          type: "direct",
-          "participants.userId": { $all: [senderId, receiver._id] },
-        });
-      }
-
-      //nếu không tìm thấy conversation và có receiverId thì tạo mới
-      if (!conversation && receiverId) {
-        conversation = await Conversation.create({
-          type: "direct",
-          participants: [
-            {
-              userId: senderId,
-              joinedAt: new Date(),
-              username: req.user.username,
-            },
-            {
-              userId: receiverId,
-              joinedAt: new Date(),
-              username: receiver.username,
-            },
-          ],
-          lastMessageAt: new Date(),
-          unreadCount: new Map(),
-        });
-      }
+    //kiểm tra xem sender có phải là thành viên của conversation không
+    const isMemberInGroup = conversation.participants.some(
+      (participant) => participant.userId.toString() === senderId.toString(),
+    );
+    if (!isMemberInGroup) {
+      return res
+        .status(403)
+        .json({ message: "You are not a member of this conversation" });
     }
 
     let replyMessage = null;
 
-    if (replyTo) {
+    if (replyTo && isMemberInGroup) {
       replyMessage = await Message.findOne({
         _id: replyTo,
         conversationId: conversation._id,
@@ -111,7 +84,7 @@ export const sendDirectMessage = async (req, res) => {
 
       if (!replyMessage) {
         return res.status(404).json({
-          message: "Reply message not found",
+          message: "Message to Reply not found",
         });
       }
     }
@@ -164,102 +137,6 @@ export const sendDirectMessage = async (req, res) => {
   - Lưu lại tất cả thay đổi
   - Trả về kết quả thành công
 */
-export const sendGroupMessage = async (req, res) => {
-  try {
-    const { conversationId, content, attachments, replyTo } = req.body;
-    const senderId = req.user._id;
-    const io = req.app.get("io");
-
-    // kiểm tra conversationId và content có tồn tại không
-    if (!conversationId) {
-      return res.status(400).json({ message: "Conversation Id is required" });
-    }
-
-    if (!content && (!attachments || attachments.length === 0)) {
-      return res.status(400).json({ message: "Content are required" });
-    }
-
-    if (content.length > MAX_CONTENT_LENGTH) {
-      return res.status(400).json({
-        message: `Content exceeds maximum length of ${MAX_CONTENT_LENGTH} characters`,
-      });
-    }
-
-    let conversation;
-
-    if (conversationId) {
-      conversation = await Conversation.findOne({
-        _id: conversationId,
-        type: "group",
-      });
-    }
-
-    if (!conversation) {
-      return res.status(404).json({ message: "Group conversation not found" });
-    }
-
-    const isMemberInGroup = await Conversation.exists({
-      _id: conversationId,
-      "participants.userId": senderId,
-    });
-
-    if (!isMemberInGroup) {
-      return res
-        .status(403)
-        .json({ message: "You are not a member of this group" });
-    }
-
-    let replyMessage = null;
-
-    if (replyTo && isMemberInGroup) {
-      replyMessage = await Message.findOne({
-        _id: replyTo,
-        conversationId: conversation._id,
-      });
-
-      if (!replyMessage) {
-        return res.status(404).json({
-          message: "Reply message not found",
-        });
-      }
-    }
-
-    const createdMessage = await Message.create({
-      conversationId: conversation._id,
-      sender: {
-        userId: senderId,
-        displayName: req.user.displayName,
-        avatarUrl: req.user.avatarUrl,
-      },
-      content,
-      attachments,
-      replyTo: replyTo ?? null,
-    });
-
-    updateConversationAfterCreateMessage(
-      conversation,
-      createdMessage,
-      senderId,
-    );
-    await conversation.save();
-
-    // Lấy message đầy đủ (sender + replyTo)
-    const [message] = await Message.aggregate(
-      buildMessagePipeline(
-        {
-          _id: createdMessage._id,
-        },
-        1,
-      ),
-    );
-    emitNewMessage(io, conversation, message);
-
-    res.status(201).json({ message: "Message sent successfully" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
 
 export const deleteMessageWithEveryOne = async (req, res) => {
   try {
@@ -276,10 +153,14 @@ export const deleteMessageWithEveryOne = async (req, res) => {
       "sender.userId": userId,
     });
 
-    const conversation = await Conversation.findById(message.conversationId);
-
     if (!message) {
       return res.status(404).json({ message: "Message not found" });
+    }
+
+    const conversation = await Conversation.findById(message.conversationId);
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
     }
 
     if (message.sender.userId.toString() !== userId.toString()) {
@@ -289,6 +170,12 @@ export const deleteMessageWithEveryOne = async (req, res) => {
     }
 
     await Message.findByIdAndDelete(messageId);
+
+    // Cập nhật các tin nhắn trả lời (replyTo) của tin nhắn bị xóa thành null
+    await Message.updateMany(
+      { replyTo: messageId },
+      { $set: { replyTo: null } },
+    );
 
     const newLatestMessage = await Message.findOne({
       conversationId: message.conversationId,
