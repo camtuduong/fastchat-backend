@@ -161,7 +161,12 @@ export const createNewConversation = async function (req, res) {
         if (!user) {
           throw new Error(`User with ID ${userId} not found`);
         }
-        return { userId, displayName: user.displayName, joinedAt: new Date() };
+        return {
+          userId,
+          displayName: user.displayName,
+          avatarUrl: user.avatarUrl,
+          joinedAt: new Date(),
+        };
       }),
     );
 
@@ -171,6 +176,7 @@ export const createNewConversation = async function (req, res) {
         {
           userId: senderId,
           displayName: req.user.displayName,
+          avatarUrl: req.user.avatarUrl,
           joinedAt: new Date(),
         },
         ...participantsWithUsernames,

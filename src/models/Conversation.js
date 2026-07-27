@@ -15,6 +15,10 @@ const participantsSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    avatarUrl: {
+      type: String,
+      trim: true,
+    },
     hidden: {
       type: Boolean,
       default: false,
