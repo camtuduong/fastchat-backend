@@ -100,6 +100,8 @@ export const emitDeleteMessage = (
             lastMessageAt: newLatestMessage ? newLatestMessage.createdAt : null,
           },
         }
-      : {}),
+      : {
+          conversation,
+        }),
   });
 };

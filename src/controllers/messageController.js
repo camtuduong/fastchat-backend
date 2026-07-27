@@ -153,10 +153,14 @@ export const deleteMessageWithEveryOne = async (req, res) => {
       "sender.userId": userId,
     });
 
-    const conversation = await Conversation.findById(message.conversationId);
-
     if (!message) {
       return res.status(404).json({ message: "Message not found" });
+    }
+
+    const conversation = await Conversation.findById(message.conversationId);
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
     }
 
     if (message.sender.userId.toString() !== userId.toString()) {
@@ -166,6 +170,12 @@ export const deleteMessageWithEveryOne = async (req, res) => {
     }
 
     await Message.findByIdAndDelete(messageId);
+
+    // Cập nhật các tin nhắn trả lời (replyTo) của tin nhắn bị xóa thành null
+    await Message.updateMany(
+      { replyTo: messageId },
+      { $set: { replyTo: null } },
+    );
 
     const newLatestMessage = await Message.findOne({
       conversationId: message.conversationId,
