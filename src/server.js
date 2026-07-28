@@ -9,7 +9,7 @@ import friendRoute from "./routes/friendRoute.js";
 import messageRoute from "./routes/messageRoute.js";
 import conversationRoute from "./routes/conversationRoute.js";
 import stickerRoute from "./routes/stickerRouter.js";
-import { createSocketServer } from "./socket/index.js";
+import { createSocketServer, onlineUsers } from "./socket/index.js";
 
 import cookieParser from "cookie-parser";
 import { authMiddleware } from "./middlewares/authMiddleware.js";
@@ -54,6 +54,8 @@ const corsOptions = {
 };
 
 const io = createSocketServer(server, corsOptions);
+
+app.set("onlineUsers", onlineUsers);
 app.set("io", io);
 
 //middleware
