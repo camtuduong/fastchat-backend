@@ -4,6 +4,7 @@ import Message from "../models/Message.js";
 import User from "../models/User.js";
 import { getNextCursor } from "../utils/paginationHelper.js";
 import { buildMessagePipeline } from "../utils/buildMessagePipeline.js";
+import { onlineUsers } from "../socket/index.js";
 
 /* 
     =============Lấy tin nhắn trong cuộc trò chuyện================
@@ -109,6 +110,7 @@ export const createNewConversation = async function (req, res) {
   try {
     const senderId = req.user._id;
     const { type, participants } = req.body;
+    const io = req.app.get("io");
 
     //kiểm tra xem type và participants có hợp lệ không
     if (!type) {
@@ -137,38 +139,42 @@ export const createNewConversation = async function (req, res) {
     if (type === "direct" && participants.length === 1) {
       isExistingConversation = await Conversation.findOne({
         type: "direct",
-        "participants.userId": { $all: [senderId, participants[0]] },
+        "participants.userId": {
+          $all: [senderId, participants[0]],
+        },
+        participants: { $size: 2 },
       });
     }
-    // else if (type === "group" && participants.length >= 1) {
-    //   isExistingConversation = await Conversation.findOne({
-    //     type: "group",
-    //     "participants.userId": { $all: [senderId, ...participants] },
-    //   });
-    // }
 
     if (isExistingConversation) {
-      return res.status(400).json({
+      return res.status(200).json({
         message: "Conversation already exists",
         conversation: isExistingConversation._id,
       });
     }
 
-    //cần add thêm username của các thành viên vào participants để hiển thị tên người dùng trong cuộc trò chuyện
-    const participantsWithUsernames = await Promise.all(
-      participants.map(async (userId) => {
-        const user = await User.findById(userId);
-        if (!user) {
-          throw new Error(`User with ID ${userId} not found`);
-        }
-        return {
-          userId,
-          displayName: user.displayName,
-          avatarUrl: user.avatarUrl,
-          joinedAt: new Date(),
-        };
-      }),
-    );
+    const users = await User.find({
+      _id: { $in: participants },
+    })
+      .select("displayName avatarUrl")
+      .lean();
+
+    const userMap = new Map(users.map((u) => [u._id.toString(), u]));
+
+    const participantsWithUsernames = participants.map((id) => {
+      const user = userMap.get(id.toString());
+
+      if (!user) {
+        throw new Error(`User ${id} not found`);
+      }
+
+      return {
+        userId: id,
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
+        joinedAt: new Date(),
+      };
+    });
 
     const newConversation = await Conversation.create({
       type,
@@ -187,6 +193,18 @@ export const createNewConversation = async function (req, res) {
         createdBy: senderId,
       },
     });
+
+    const conversationId = newConversation._id.toString();
+
+    for (const participant of newConversation.participants) {
+      const socketIds = onlineUsers.get(participant.userId.toString());
+
+      if (!socketIds) continue;
+
+      for (const socketId of socketIds) {
+        io.sockets.sockets.get(socketId)?.join(conversationId);
+      }
+    }
 
     return res.status(200).json({
       message: "Conversation created successfully",
