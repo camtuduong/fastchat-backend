@@ -99,6 +99,65 @@ export const getAllConversations = async function (req, res) {
   }
 };
 
+export const getMessagesPinnedInConversation = async function (req, res) {
+  try {
+    const { conversationId } = req.params;
+    const cursor = req.query.cursor;
+
+    const filter = {
+      conversationId: new mongoose.Types.ObjectId(conversationId),
+    };
+
+    if (!conversationId) {
+      return res.status(400).json({ message: "Conversation Id is required" });
+    }
+
+    const isMember = await Conversation.exists({
+      _id: conversationId,
+      "participants.userId": req.user._id,
+    });
+
+    if (!isMember) {
+      return res
+        .status(403)
+        .json({ message: "You are not a member of this conversation" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      "participants.userId": req.user._id,
+    });
+
+    if (cursor) {
+      filter.createdAt = { $lt: new Date(cursor) };
+    }
+
+    if (conversation) {
+      const participant = conversation.participants.find(
+        (p) => p.userId.toString() === req.user._id.toString(),
+      );
+
+      if (participant.clearedAt) {
+        filter.createdAt = {
+          ...filter.createdAt,
+          $gt: participant.clearedAt,
+        };
+      }
+    }
+
+    const messages = await Message.aggregate(buildMessagePipeline(filter, 40));
+
+    const MessagesPinned = messages.filter((message) => message.isPin === true);
+
+    const nextCursor = getNextCursor(MessagesPinned, "createdAt");
+
+    return res.status(200).json({ messages: MessagesPinned, nextCursor });
+  } catch (error) {
+    console.error("Error fetching pinned messages in conversation:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 /* 
     ============Tạo cuộc trò chuyện mới===========
     - Kiểm tra dữ liệu đầu vào có hợp lệ không

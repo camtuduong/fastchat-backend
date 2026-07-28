@@ -4,6 +4,7 @@ import { buildMessagePipeline } from "../utils/buildMessagePipeline.js";
 import {
   emitDeleteMessage,
   emitNewMessage,
+  emitPinnedMessage,
   updateConversationAfterCreateMessage,
   updateConversationAfterDeleteMessage,
 } from "../utils/messageHelper.js";
@@ -200,6 +201,34 @@ export const deleteMessageWithEveryOne = async (req, res) => {
     );
 
     res.status(200).json({ message: "Message deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const pinMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const io = req.app.get("io");
+
+    if (!messageId) {
+      return res.status(400).json({ message: "Message Id is required" });
+    }
+
+    const message = await Message.findById(messageId);
+
+    if (!message) {
+      return res.status(404).json({ message: "Message not found" });
+    }
+
+    message.isPin = true;
+    await message.save();
+
+    console.log("Pinned message:", message);
+
+    emitPinnedMessage(io, message.conversationId, message);
+    res.status(200).json({ message: "Message pinned successfully" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error" });
