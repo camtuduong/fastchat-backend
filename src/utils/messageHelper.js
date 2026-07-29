@@ -105,10 +105,3 @@ export const emitDeleteMessage = (
         }),
   });
 };
-
-//gửi socket pinned message
-export const emitPinnedMessage = (io, conversationId, message) => {
-  io.to(conversationId.toString()).emit("pinned-message", {
-    message,
-  });
-};

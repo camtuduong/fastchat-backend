@@ -7,6 +7,7 @@ import {
   seenConversation,
   getConversationById,
   removeConversationForMe,
+  addPinnedMessageInConversation,
 } from "../controllers/conversationController.js";
 
 const router = express.Router();
@@ -20,5 +21,7 @@ router.get("/:conversationId", getConversationById);
 router.post("/new", createNewConversation);
 router.patch("/:conversationId/seen", seenConversation);
 router.patch("/:conversationId/remove-for-me", removeConversationForMe);
+
+router.post("/:conversationId/messages/pin", addPinnedMessageInConversation);
 
 export default router;
