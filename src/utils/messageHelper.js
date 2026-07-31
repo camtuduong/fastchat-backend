@@ -105,3 +105,22 @@ export const emitDeleteMessage = (
         }),
   });
 };
+
+export const emitUnpinnedMessage = (io, conversationId) => {
+  io.to(conversationId.toString()).emit("unpinned-message", conversationId);
+};
+
+export const emitPinMessage = (io, conversation, message) => {
+  io.to(conversation._id.toString()).emit("pin-message", {
+    message,
+    conversation: {
+      _id: conversation._id,
+      lastMessage: conversation.lastMessage,
+      lastMessageAt: conversation.lastMessageAt,
+      participants: conversation.participants.map((p) => ({
+        hidden: p.hidden,
+      })),
+    },
+    unreadCount: conversation.unreadCount,
+  });
+};

@@ -5,6 +5,8 @@ import User from "../models/User.js";
 import { getNextCursor } from "../utils/paginationHelper.js";
 import { buildMessagePipeline } from "../utils/buildMessagePipeline.js";
 import { onlineUsers } from "../socket/index.js";
+import { emitPinMessage, emitUnpinnedMessage } from "../utils/messageHelper.js";
+import { buildConversationPipeline } from "../utils/buildConversationPipeline.js";
 
 /* 
     =============Lấy tin nhắn trong cuộc trò chuyện================
@@ -255,6 +257,10 @@ export const getConversationById = async function (req, res) {
     const { conversationId } = req.params;
     const userId = req.user._id;
 
+    const filter = {
+      _id: new mongoose.Types.ObjectId(conversationId),
+    };
+
     if (!conversationId) {
       return res.status(400).json({ message: "Conversation Id is required" });
     }
@@ -270,12 +276,15 @@ export const getConversationById = async function (req, res) {
         .json({ message: "You are not a member of this conversation" });
     }
 
-    const conversation = await Conversation.findById(conversationId);
-    if (!conversation) {
+    const conversation = await Conversation.aggregate(
+      buildConversationPipeline(filter),
+    );
+    if (!conversation || conversation.length === 0) {
       return res.status(404).json({ message: "Conversation not found" });
     }
+    const conversationData = conversation[0];
 
-    return res.status(200).json({ conversation });
+    return res.status(200).json({ conversation: conversationData });
   } catch (error) {
     console.error("Error fetching conversation by ID:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -331,6 +340,139 @@ export const removeConversationForMe = async function (req, res) {
     return res.status(200).json({ message: "Conversation deleted for user" });
   } catch (error) {
     console.error("Error deleting conversation for user:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const addPinnedMessageInConversation = async function (req, res) {
+  try {
+    const { conversationId } = req.params;
+    const { messageId } = req.body;
+    const io = req.app.get("io");
+
+    if (!conversationId || !messageId) {
+      return res
+        .status(400)
+        .json({ message: "Conversation Id and Message Id are required" });
+    }
+
+    //tìm conversation và kiểm tra xem người dùng có phải là thành viên không
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      "participants.userId": req.user._id,
+    });
+
+    if (!conversation) {
+      return res
+        .status(404)
+        .json({ message: "Conversation not found or you are not a member" });
+    }
+
+    const message = await Message.findOne({
+      _id: messageId,
+      conversationId: conversationId,
+    });
+
+    if (!message) {
+      return res
+        .status(404)
+        .json({ message: "Message not found in this conversation" });
+    }
+
+    if (
+      conversation.pinnedMessages.some(
+        (pinned) => pinned.messageId.toString() === messageId,
+      )
+    ) {
+      return res.status(400).json({ message: "Message is already pinned" });
+    }
+
+    //thêm message vào danh sách pinnedMessages của conversation
+    await Conversation.updateOne(
+      { _id: conversationId },
+      {
+        $push: {
+          pinnedMessages: {
+            messageId: message._id,
+            pinnedBy: req.user._id,
+            pinnedAt: new Date(),
+          },
+        },
+      },
+    );
+
+    const systemMessage = new Message({
+      conversationId: conversationId,
+      content: `${req.user.displayName} pinned a message`,
+      sender: {
+        userId: req.user._id,
+      },
+      system: {
+        action: "pin_message",
+        messageId: message._id,
+      },
+      createdAt: new Date(),
+    });
+    await systemMessage.save();
+
+    emitPinMessage(io, conversation, systemMessage);
+
+    res.status(200).json({ message: "Message pinned successfully" });
+  } catch (error) {
+    console.error("Error adding pinned message in conversation:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const unpinnedMessageInConversation = async function (req, res) {
+  try {
+    const { conversationId } = req.params;
+    const { messageId } = req.body;
+    const io = req.app.get("io");
+
+    if (!conversationId || !messageId) {
+      return res
+        .status(400)
+        .json({ message: "Conversation Id and Message Id are required" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      "participants.userId": req.user._id,
+    });
+
+    if (!conversation) {
+      return res
+        .status(404)
+        .json({ message: "Conversation not found or you are not a member" });
+    }
+
+    const isExistPinnedMessageId = conversation.pinnedMessages.find(
+      (pinned) => pinned.messageId.toString() === messageId,
+    );
+
+    if (!isExistPinnedMessageId) {
+      return res
+        .status(404)
+        .json({ message: "Pinned message not found in this conversation" });
+    }
+
+    await Conversation.updateOne(
+      { _id: conversationId },
+      {
+        $pull: {
+          pinnedMessages: {
+            messageId: new mongoose.Types.ObjectId(messageId),
+          },
+        },
+      },
+    );
+
+    emitUnpinnedMessage(io, conversation._id);
+
+    res.status(200).json({ message: "Message unpinned successfully" });
+  } catch (error) {
+    console.error("Error unpinning message in conversation:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };

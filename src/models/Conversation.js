@@ -58,6 +58,28 @@ const groupSchema = new mongoose.Schema(
   },
 );
 
+const pinnedMessageSchema = new mongoose.Schema(
+  {
+    messageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+      required: true,
+    },
+    pinnedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    pinnedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  {
+    _id: false,
+  },
+);
+
 const lastMessageSchema = new mongoose.Schema(
   {
     _id: {
@@ -119,6 +141,13 @@ const conversationSchema = new mongoose.Schema(
       type: lastMessageSchema,
       trim: true,
     },
+
+    //pinnedMessages lưu trữ các tin nhắn đã được ghim trong cuộc trò chuyện, bao gồm cả thông tin về người ghim và thời gian ghim
+    pinnedMessages: [
+      {
+        type: pinnedMessageSchema,
+      },
+    ],
     // Lưu số lượng tin nhắn chưa đọc cho mỗi người tham gia
     unreadCount: {
       type: Map,

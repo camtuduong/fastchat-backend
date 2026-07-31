@@ -53,6 +53,22 @@ const messageSchema = new mongoose.Schema(
       ref: "Message",
       default: null,
     },
+    system: {
+      action: {
+        type: String,
+        enum: [
+          "create_group",
+          "rename_group",
+          "add_member",
+          "remove_member",
+          "leave_group",
+          "pin_message",
+          "unpin_message",
+        ],
+      },
+
+      metadata: mongoose.Schema.Types.Mixed,
+    },
   },
   { timestamps: true },
 );
