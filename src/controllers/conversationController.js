@@ -5,7 +5,7 @@ import User from "../models/User.js";
 import { getNextCursor } from "../utils/paginationHelper.js";
 import { buildMessagePipeline } from "../utils/buildMessagePipeline.js";
 import { onlineUsers } from "../socket/index.js";
-import { emitNewMessage } from "../utils/messageHelper.js";
+import { emitPinMessage, emitUnpinnedMessage } from "../utils/messageHelper.js";
 import { buildConversationPipeline } from "../utils/buildConversationPipeline.js";
 
 /* 
@@ -97,65 +97,6 @@ export const getAllConversations = async function (req, res) {
     return res.status(200).json({ conversations, nextCursor });
   } catch (error) {
     console.error("Error fetching conversations:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
-
-export const getMessagesPinnedInConversation = async function (req, res) {
-  try {
-    const { conversationId } = req.params;
-    const cursor = req.query.cursor;
-
-    const filter = {
-      conversationId: new mongoose.Types.ObjectId(conversationId),
-    };
-
-    if (!conversationId) {
-      return res.status(400).json({ message: "Conversation Id is required" });
-    }
-
-    const isMember = await Conversation.exists({
-      _id: conversationId,
-      "participants.userId": req.user._id,
-    });
-
-    if (!isMember) {
-      return res
-        .status(403)
-        .json({ message: "You are not a member of this conversation" });
-    }
-
-    const conversation = await Conversation.findOne({
-      _id: conversationId,
-      "participants.userId": req.user._id,
-    });
-
-    if (cursor) {
-      filter.createdAt = { $lt: new Date(cursor) };
-    }
-
-    if (conversation) {
-      const participant = conversation.participants.find(
-        (p) => p.userId.toString() === req.user._id.toString(),
-      );
-
-      if (participant.clearedAt) {
-        filter.createdAt = {
-          ...filter.createdAt,
-          $gt: participant.clearedAt,
-        };
-      }
-    }
-
-    const messages = await Message.aggregate(buildMessagePipeline(filter, 40));
-
-    const MessagesPinned = messages.filter((message) => message.isPin === true);
-
-    const nextCursor = getNextCursor(MessagesPinned, "createdAt");
-
-    return res.status(200).json({ messages: MessagesPinned, nextCursor });
-  } catch (error) {
-    console.error("Error fetching pinned messages in conversation:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -438,6 +379,14 @@ export const addPinnedMessageInConversation = async function (req, res) {
         .json({ message: "Message not found in this conversation" });
     }
 
+    if (
+      conversation.pinnedMessages.some(
+        (pinned) => pinned.messageId.toString() === messageId,
+      )
+    ) {
+      return res.status(400).json({ message: "Message is already pinned" });
+    }
+
     //thêm message vào danh sách pinnedMessages của conversation
     await Conversation.updateOne(
       { _id: conversationId },
@@ -466,11 +415,64 @@ export const addPinnedMessageInConversation = async function (req, res) {
     });
     await systemMessage.save();
 
-    emitNewMessage(io, conversation, systemMessage);
+    emitPinMessage(io, conversation, systemMessage);
 
     res.status(200).json({ message: "Message pinned successfully" });
   } catch (error) {
-    console.log("Error adding pinned message in conversation:", error);
+    console.error("Error adding pinned message in conversation:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const unpinnedMessageInConversation = async function (req, res) {
+  try {
+    const { conversationId } = req.params;
+    const { messageId } = req.body;
+    const io = req.app.get("io");
+
+    if (!conversationId || !messageId) {
+      return res
+        .status(400)
+        .json({ message: "Conversation Id and Message Id are required" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      "participants.userId": req.user._id,
+    });
+
+    if (!conversation) {
+      return res
+        .status(404)
+        .json({ message: "Conversation not found or you are not a member" });
+    }
+
+    const isExistPinnedMessageId = conversation.pinnedMessages.find(
+      (pinned) => pinned.messageId.toString() === messageId,
+    );
+
+    if (!isExistPinnedMessageId) {
+      return res
+        .status(404)
+        .json({ message: "Pinned message not found in this conversation" });
+    }
+
+    await Conversation.updateOne(
+      { _id: conversationId },
+      {
+        $pull: {
+          pinnedMessages: {
+            messageId: new mongoose.Types.ObjectId(messageId),
+          },
+        },
+      },
+    );
+
+    emitUnpinnedMessage(io, conversation._id);
+
+    res.status(200).json({ message: "Message unpinned successfully" });
+  } catch (error) {
+    console.error("Error unpinning message in conversation:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
