@@ -403,7 +403,7 @@ export const addPinnedMessageInConversation = async function (req, res) {
 
     const systemMessage = new Message({
       conversationId: conversationId,
-      content: `${req.user.displayName} pinned a message`,
+      content: `<b>${req.user.displayName}</b> has <i>pinned</i> a message`,
       sender: {
         userId: req.user._id,
       },
