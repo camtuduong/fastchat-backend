@@ -5,7 +5,11 @@ import User from "../models/User.js";
 import { getNextCursor } from "../utils/paginationHelper.js";
 import { buildMessagePipeline } from "../utils/buildMessagePipeline.js";
 import { onlineUsers } from "../socket/index.js";
-import { emitPinMessage, emitUnpinnedMessage } from "../utils/messageHelper.js";
+import {
+  emitNewMessage,
+  emitPinMessage,
+  emitUnpinnedMessage,
+} from "../utils/messageHelper.js";
 import { buildConversationPipeline } from "../utils/buildConversationPipeline.js";
 
 /* 
@@ -208,6 +212,23 @@ export const createNewConversation = async function (req, res) {
       }
     }
 
+    if (type === "group") {
+      const systemMessage = new Message({
+        conversationId: newConversation._id,
+        content: `<b>${req.user.displayName}</b> has created the group</b>`,
+        sender: {
+          userId: req.user._id,
+        },
+        system: {
+          action: "create_group",
+          groupName: req.body.groupName,
+        },
+        createdAt: new Date(),
+      });
+      await systemMessage.save();
+
+      emitNewMessage(io, newConversation, systemMessage);
+    }
     return res.status(200).json({
       message: "Conversation created successfully",
       conversation: newConversation._id,
