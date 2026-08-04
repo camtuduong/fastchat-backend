@@ -110,6 +110,20 @@ export const emitUnpinnedMessage = (io, conversationId) => {
   io.to(conversationId.toString()).emit("unpinned-message", conversationId);
 };
 
+export const emitAddMember = (io, conversationId, newMember) => {
+  io.to(conversationId.toString()).emit("add-member", {
+    conversationId,
+    newMember,
+  });
+};
+
+export const emitRemoveMember = (io, conversationId, removedMemberId) => {
+  io.to(conversationId.toString()).emit("remove-member", {
+    conversationId,
+    removedMemberId,
+  });
+};
+
 export const emitPinMessage = (io, conversation, message) => {
   io.to(conversation._id.toString()).emit("pin-message", {
     message,
