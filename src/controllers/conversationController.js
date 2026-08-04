@@ -6,8 +6,10 @@ import { getNextCursor } from "../utils/paginationHelper.js";
 import { buildMessagePipeline } from "../utils/buildMessagePipeline.js";
 import { onlineUsers } from "../socket/index.js";
 import {
+  emitAddMember,
   emitNewMessage,
   emitPinMessage,
+  emitRemoveMember,
   emitUnpinnedMessage,
 } from "../utils/messageHelper.js";
 import { buildConversationPipeline } from "../utils/buildConversationPipeline.js";
@@ -196,7 +198,7 @@ export const createNewConversation = async function (req, res) {
       group: {
         name: type === "group" ? req.body.groupName : undefined,
         createdAt: new Date(),
-        createdBy: senderId,
+        createdBy: type === "group" ? req.user._id : undefined,
       },
     });
 
@@ -328,6 +330,7 @@ export const addNewMembersToConversation = async function (req, res) {
     await systemMessage.save();
 
     emitNewMessage(io, conversation, systemMessage);
+    emitAddMember(io, conversation._id, newMembersToAdd);
 
     return res.status(200).json({
       message: "New member added successfully",
@@ -335,6 +338,80 @@ export const addNewMembersToConversation = async function (req, res) {
     });
   } catch (error) {
     console.error("Error adding new member to conversation:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const removeMemberFromConversation = async function (req, res) {
+  try {
+    const { conversationId } = req.params;
+    const { memberId } = req.params;
+    const io = req.app.get("io");
+
+    if (!conversationId || !memberId) {
+      return res
+        .status(400)
+        .json({ message: "Conversation Id and Member Id are required" });
+    }
+
+    //kiểm tra xem cuộc trò chuyện có tồn tại và người dùng hiện tại có phải là thành viên không
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      type: "group",
+      "group.createdBy": req.user._id,
+      "participants.userId": req.user._id,
+    });
+
+    if (!conversation) {
+      return res.status(404).json({
+        message:
+          "Conversation not found or you are not a member or not the creator",
+      });
+    }
+
+    const isMember = conversation.participants.some(
+      (p) => p.userId.toString() === memberId,
+    );
+
+    if (!isMember) {
+      return res
+        .status(404)
+        .json({ message: "Member not found in the conversation" });
+    }
+
+    if (memberId.toString() === conversation.group.createdBy.toString()) {
+      return res
+        .status(400)
+        .json({ message: "Cannot remove the group creator" });
+    }
+
+    const systemMessage = new Message({
+      conversationId: conversation._id,
+      content: `<b>${req.user.displayName}</b> has removed <b>${conversation.participants.find((p) => p.userId.toString() === memberId)?.displayName}</b> from the conversation`,
+      sender: {
+        userId: req.user._id,
+      },
+      system: {
+        action: "remove_member",
+        removedMemberId: memberId,
+      },
+      createdAt: new Date(),
+    });
+
+    conversation.participants = conversation.participants.filter(
+      (p) => p.userId.toString() !== memberId,
+    );
+    await conversation.save();
+    await systemMessage.save();
+    emitNewMessage(io, conversation, systemMessage);
+    emitRemoveMember(io, conversation._id, memberId);
+
+    res.status(200).json({
+      message: "Member removed successfully",
+      conversation: conversation._id,
+    });
+  } catch (error) {
+    console.error("Error removing member from conversation:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -548,7 +625,7 @@ export const addPinnedMessageInConversation = async function (req, res) {
 export const unpinnedMessageInConversation = async function (req, res) {
   try {
     const { conversationId } = req.params;
-    const { messageId } = req.body;
+    const { messageId } = req.params;
     const io = req.app.get("io");
 
     if (!conversationId || !messageId) {
