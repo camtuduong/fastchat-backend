@@ -239,6 +239,106 @@ export const createNewConversation = async function (req, res) {
   }
 };
 
+export const addNewMembersToConversation = async function (req, res) {
+  try {
+    const { conversationId } = req.params;
+    const { memberIds } = req.body; // newMemberId should be an array
+    const io = req.app.get("io");
+
+    if (
+      !conversationId ||
+      !memberIds ||
+      !Array.isArray(memberIds) ||
+      memberIds.length === 0
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Conversation Id and Member Ids are required" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      "participants.userId": req.user._id,
+    });
+
+    if (!conversation) {
+      return res
+        .status(404)
+        .json({ message: "Conversation not found or you are not a member" });
+    }
+
+    const isUsers = await User.find({ _id: { $in: memberIds } });
+
+    if (isUsers.length !== memberIds.length) {
+      return res.status(404).json({ message: "One or more users not found" });
+    }
+
+    const alreadyMemberIds = conversation.participants.map((p) =>
+      p.userId.toString(),
+    );
+
+    const newMembersToAdd = memberIds.filter(
+      (id) => !alreadyMemberIds.includes(id),
+    );
+
+    if (newMembersToAdd.length === 0) {
+      return res.status(400).json({
+        message: "All users are already members of this conversation",
+      });
+    }
+
+    const users = await User.find({
+      _id: { $in: newMembersToAdd },
+    })
+      .select("displayName avatarUrl")
+      .lean();
+
+    const userMap = new Map(users.map((u) => [u._id.toString(), u]));
+
+    const participantsWithUsernames = newMembersToAdd.map((id) => {
+      const user = userMap.get(id.toString());
+
+      if (!user) {
+        throw new Error(`User ${id} not found`);
+      }
+
+      return {
+        userId: id,
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
+        joinedAt: new Date(),
+      };
+    });
+
+    conversation.participants.push(...participantsWithUsernames);
+    await conversation.save();
+
+    const systemMessage = new Message({
+      conversationId: conversation._id,
+      content: `<b>${req.user.displayName}</b> has added <b>${participantsWithUsernames.map((p) => p.displayName).join(", ")}</b> to the conversation`,
+      sender: {
+        userId: req.user._id,
+      },
+      system: {
+        action: "add_member",
+        newMemberIds: newMembersToAdd,
+      },
+      createdAt: new Date(),
+    });
+    await systemMessage.save();
+
+    emitNewMessage(io, conversation, systemMessage);
+
+    return res.status(200).json({
+      message: "New member added successfully",
+      conversation: conversation._id,
+    });
+  } catch (error) {
+    console.error("Error adding new member to conversation:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 export const seenConversation = async function (req, res) {
   try {
     const { conversationId } = req.params;
