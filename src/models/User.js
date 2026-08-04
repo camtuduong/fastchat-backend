@@ -35,11 +35,10 @@ const userSchema = new mongoose.Schema(
   },
 );
 
-userSchema.pre("save", function (next) {
+userSchema.pre("save", function () {
   if (this.isModified("displayName")) {
     this.displayNameNormalized = normalizeText(this.displayName);
   }
-  next();
 });
 
 const User = mongoose.model("User", userSchema);
