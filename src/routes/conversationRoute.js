@@ -10,7 +10,9 @@ import {
   unpinnedMessageInConversation,
   addNewMembersToConversation,
   removeMemberFromConversation,
+  uploadGroupAvatar,
 } from "../controllers/conversationController.js";
+import { upload } from "../middlewares/uploadMiddleware.js";
 
 const router = express.Router();
 
@@ -30,4 +32,9 @@ router.patch("/:conversationId/remove-for-me", removeConversationForMe);
 router.post("/:conversationId/messages/pin", addPinnedMessageInConversation);
 router.patch("/:conversationId/messages/unpin", unpinnedMessageInConversation);
 
+router.post(
+  "/:conversationId/upload-avatar",
+  upload.single("file"),
+  uploadGroupAvatar,
+);
 export default router;
