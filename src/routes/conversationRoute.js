@@ -11,6 +11,7 @@ import {
   addNewMembersToConversation,
   removeMemberFromConversation,
   uploadGroupAvatar,
+  updateGroupName,
 } from "../controllers/conversationController.js";
 import { upload } from "../middlewares/uploadMiddleware.js";
 
@@ -37,4 +38,6 @@ router.post(
   upload.single("file"),
   uploadGroupAvatar,
 );
+
+router.patch("/:conversationId/rename", updateGroupName);
 export default router;

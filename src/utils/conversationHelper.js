@@ -18,3 +18,10 @@ export const emitUpdateGroupAvatar = (io, conversationId, groupAvatarUrl) => {
     groupAvatarUrl,
   });
 };
+
+export const emitUpdateGroupName = (io, conversationId, groupName) => {
+  io.to(conversationId.toString()).emit("rename_group", {
+    conversationId,
+    groupName,
+  });
+};

@@ -16,6 +16,7 @@ import {
   emitAddMember,
   emitRemoveMember,
   emitUpdateGroupAvatar,
+  emitUpdateGroupName,
 } from "../utils/conversationHelper.js";
 
 /* 
@@ -735,6 +736,63 @@ export const uploadGroupAvatar = async function (req, res) {
     return res.status(200).json({ groupAvatarUrl: result.secure_url });
   } catch (error) {
     console.error("Error uploading group avatar:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const updateGroupName = async function (req, res) {
+  try {
+    const { conversationId } = req.params;
+    const { groupName } = req.body;
+    const io = req.app.get("io");
+
+    if (!conversationId || !groupName) {
+      return res
+        .status(400)
+        .json({ message: "Conversation Id and Group Name are required" });
+    }
+
+    if (groupName.length > 100) {
+      return res
+        .status(400)
+        .json({ message: "Group Name must be less than 100 characters" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      type: "group",
+      "participants.userId": req.user._id,
+    });
+
+    if (!conversation) {
+      return res
+        .status(404)
+        .json({ message: "Conversation not found or you are not a member" });
+    }
+
+    conversation.group.name = groupName;
+    await conversation.save();
+
+    const systemMessage = new Message({
+      conversationId: conversation._id,
+      content: `<b>${req.user.displayName}</b> has changed the group name to <b>${groupName}</b>`,
+      sender: {
+        userId: req.user._id,
+      },
+      system: {
+        action: "rename_group",
+        groupName: groupName,
+      },
+      createdAt: new Date(),
+    });
+    await systemMessage.save();
+
+    emitNewMessage(io, conversation, systemMessage);
+    emitUpdateGroupName(io, conversation._id, groupName);
+
+    return res.status(200).json({ message: "Group name updated successfully" });
+  } catch (error) {
+    console.error("Error updating group name:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
