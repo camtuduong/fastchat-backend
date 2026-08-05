@@ -59,6 +59,7 @@ const messageSchema = new mongoose.Schema(
         enum: [
           "create_group",
           "rename_group",
+          "change_group_avatar",
           "add_member",
           "remove_member",
           "leave_group",

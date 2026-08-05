@@ -6,13 +6,18 @@ import { getNextCursor } from "../utils/paginationHelper.js";
 import { buildMessagePipeline } from "../utils/buildMessagePipeline.js";
 import { onlineUsers } from "../socket/index.js";
 import {
-  emitAddMember,
   emitNewMessage,
   emitPinMessage,
-  emitRemoveMember,
   emitUnpinnedMessage,
 } from "../utils/messageHelper.js";
 import { buildConversationPipeline } from "../utils/buildConversationPipeline.js";
+import { uploadImageFromBuffer } from "../middlewares/uploadMiddleware.js";
+import {
+  emitAddMember,
+  emitRemoveMember,
+  emitUpdateGroupAvatar,
+  emitUpdateGroupName,
+} from "../utils/conversationHelper.js";
 
 /* 
     =============Lấy tin nhắn trong cuộc trò chuyện================
@@ -671,6 +676,123 @@ export const unpinnedMessageInConversation = async function (req, res) {
     res.status(200).json({ message: "Message unpinned successfully" });
   } catch (error) {
     console.error("Error unpinning message in conversation:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const uploadGroupAvatar = async function (req, res) {
+  try {
+    const file = req.file;
+    const { conversationId } = req.params;
+    const io = req.app.get("io");
+
+    if (!conversationId) {
+      return res.status(400).json({ message: "Conversation Id is required" });
+    }
+
+    if (!file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      type: "group",
+      "participants.userId": req.user._id,
+    });
+
+    if (!conversation) {
+      return res
+        .status(404)
+        .json({ message: "Conversation not found or you are not a member" });
+    }
+
+    // Upload the image to Cloudinary
+    const result = await uploadImageFromBuffer(file.buffer, {
+      folder: "fastchat/group_avatars",
+      resource_type: "image",
+      transformation: [{ width: 200, height: 200, crop: "fill" }],
+    });
+
+    conversation.group.groupAvatarUrl = result.secure_url;
+    await conversation.save();
+
+    const systemMessage = new Message({
+      conversationId: conversation._id,
+      content: `<b>${req.user.displayName}</b> has changed the group avatar`,
+      sender: {
+        userId: req.user._id,
+      },
+      system: {
+        action: "change_group_avatar",
+        groupAvatarUrl: result.secure_url,
+      },
+      createdAt: new Date(),
+    });
+    await systemMessage.save();
+
+    emitNewMessage(io, conversation, systemMessage);
+    emitUpdateGroupAvatar(io, conversation._id, result.secure_url);
+
+    return res.status(200).json({ groupAvatarUrl: result.secure_url });
+  } catch (error) {
+    console.error("Error uploading group avatar:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const updateGroupName = async function (req, res) {
+  try {
+    const { conversationId } = req.params;
+    const { groupName } = req.body;
+    const io = req.app.get("io");
+
+    if (!conversationId || !groupName) {
+      return res
+        .status(400)
+        .json({ message: "Conversation Id and Group Name are required" });
+    }
+
+    if (groupName.length > 100) {
+      return res
+        .status(400)
+        .json({ message: "Group Name must be less than 100 characters" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      type: "group",
+      "participants.userId": req.user._id,
+    });
+
+    if (!conversation) {
+      return res
+        .status(404)
+        .json({ message: "Conversation not found or you are not a member" });
+    }
+
+    conversation.group.name = groupName;
+    await conversation.save();
+
+    const systemMessage = new Message({
+      conversationId: conversation._id,
+      content: `<b>${req.user.displayName}</b> has changed the group name to <b>${groupName}</b>`,
+      sender: {
+        userId: req.user._id,
+      },
+      system: {
+        action: "rename_group",
+        groupName: groupName,
+      },
+      createdAt: new Date(),
+    });
+    await systemMessage.save();
+
+    emitNewMessage(io, conversation, systemMessage);
+    emitUpdateGroupName(io, conversation._id, groupName);
+
+    return res.status(200).json({ message: "Group name updated successfully" });
+  } catch (error) {
+    console.error("Error updating group name:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };

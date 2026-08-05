@@ -38,6 +38,7 @@ const groupSchema = new mongoose.Schema(
     name: {
       type: String,
       trim: true,
+      maxlength: 100,
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,

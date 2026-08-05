@@ -9,6 +9,7 @@ const userSchema = new mongoose.Schema(
       unique: true,
       trim: true,
       lowercase: true,
+      maxlength: 30,
     },
     hashPassword: { type: String, required: true },
     email: {
@@ -17,8 +18,9 @@ const userSchema = new mongoose.Schema(
       unique: true,
       trim: true,
       lowercase: true,
+      maxlength: 100,
     },
-    displayName: { type: String, required: true, trim: true },
+    displayName: { type: String, required: true, trim: true, maxlength: 100 },
     displayNameNormalized: { type: String, trim: true },
     avatarUrl: { type: String, trim: true },
     avatarId: { type: String, trim: true },
