@@ -12,6 +12,7 @@ import {
   removeMemberFromConversation,
   uploadGroupAvatar,
   updateGroupName,
+  favoriteInConversation,
 } from "../controllers/conversationController.js";
 import { upload } from "../middlewares/uploadMiddleware.js";
 
@@ -40,4 +41,6 @@ router.post(
 );
 
 router.patch("/:conversationId/rename", updateGroupName);
+
+router.post("/:conversationId/favorite", favoriteInConversation);
 export default router;
