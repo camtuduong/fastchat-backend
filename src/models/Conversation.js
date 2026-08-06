@@ -149,12 +149,18 @@ const conversationSchema = new mongoose.Schema(
         type: pinnedMessageSchema,
       },
     ],
-    // Lưu số lượng tin nhắn chưa đọc cho mỗi người tham gia
+    // Lưu số lượng tin nhắn chưa đọc cho mỗi người tham giaadd
     unreadCount: {
       type: Map,
       of: Number,
       default: {},
     },
+    favoriteBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   {
     timestamps: true,

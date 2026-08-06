@@ -35,7 +35,7 @@ export const pinnedMessagePipeline = [
   },
 ];
 
-export const buildConversationPipeline = (filter) => [
+export const buildConversationPipeline = (filter, userId) => [
   { $match: filter },
   {
     $set: {
@@ -50,4 +50,16 @@ export const buildConversationPipeline = (filter) => [
     },
   },
   ...pinnedMessagePipeline,
+  {
+    $addFields: {
+      isFavorite: {
+        $in: [userId, { $ifNull: ["$favoriteBy", []] }],
+      },
+    },
+  },
+  {
+    $project: {
+      favoriteBy: 0,
+    },
+  },
 ];

@@ -99,9 +99,32 @@ export const getAllConversations = async function (req, res) {
       filter.lastMessageAt = { $lt: new Date(cursor) };
     }
 
-    const conversations = await Conversation.find(filter)
-      .sort({ lastMessageAt: -1 })
-      .limit(20);
+    const conversations = await Conversation.aggregate([
+      {
+        $match: filter,
+      },
+      {
+        $addFields: {
+          isFavorite: {
+            $in: [req.user._id, { $ifNull: ["$favoriteBy", []] }],
+          },
+        },
+      },
+      {
+        $sort: {
+          isFavorite: -1,
+          lastMessageAt: -1,
+        },
+      },
+      {
+        $limit: 20,
+      },
+      {
+        $project: {
+          favoriteBy: 0,
+        },
+      },
+    ]);
 
     const nextCursor = getNextCursor(conversations, "lastMessageAt");
 
@@ -480,7 +503,7 @@ export const getConversationById = async function (req, res) {
     }
 
     const conversation = await Conversation.aggregate(
-      buildConversationPipeline(filter),
+      buildConversationPipeline(filter, userId),
     );
     if (!conversation || conversation.length === 0) {
       return res.status(404).json({ message: "Conversation not found" });
@@ -793,6 +816,50 @@ export const updateGroupName = async function (req, res) {
     return res.status(200).json({ message: "Group name updated successfully" });
   } catch (error) {
     console.error("Error updating group name:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const favoriteInConversation = async function (req, res) {
+  try {
+    const { conversationId } = req.params;
+
+    if (!conversationId) {
+      return res.status(400).json({ message: "Conversation Id is required" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      "participants.userId": req.user._id,
+    });
+
+    if (!conversation) {
+      return res
+        .status(404)
+        .json({ message: "Conversation not found or you are not a member" });
+    }
+
+    const isAlreadyFavorite = conversation.favoriteBy.some(
+      (fav) => fav.toString() === req.user._id.toString(),
+    );
+
+    if (isAlreadyFavorite) {
+      conversation.favoriteBy.pull(req.user._id);
+      await conversation.save();
+
+      return res
+        .status(200)
+        .json({ message: "Conversation removed from favorites successfully" });
+    }
+
+    conversation.favoriteBy.push(req.user._id);
+    await conversation.save();
+
+    return res
+      .status(200)
+      .json({ message: "Conversation added to favorites successfully" });
+  } catch (error) {
+    console.error("Error adding favorite conversation:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
