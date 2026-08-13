@@ -7,7 +7,10 @@ export const searchSticker = async (req, res) => {
 
   for (const apiKey of API_KEYS) {
     try {
-      const url = `${apiKey}/stickers/search?page=${page ?? 1}&per_page=${per_page ?? 20}&q=${query ?? "String"}&format_filter=${format_filter ?? ""}&content_filter=${content_filter ?? ""}`;
+      const url = query
+        ? `${apiKey}/stickers/search?page=${page ?? 1}&per_page=${per_page ?? 20}&q=${query}&format_filter=${format_filter ?? ""}&content_filter=${content_filter ?? ""}`
+        : `${apiKey}/stickers/trending?page=${page ?? 1}&per_page=${per_page ?? 20}&format_filter=${format_filter ?? ""}&content_filter=${content_filter ?? ""}`;
+
       const response = await apiKlipy.get(url);
 
       return res.json(response.data);

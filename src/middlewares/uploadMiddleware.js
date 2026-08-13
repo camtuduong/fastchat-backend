@@ -1,9 +1,11 @@
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 
+export const MAX_ATTACHMENT_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
 export const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
+  limits: { fileSize: MAX_ATTACHMENT_FILE_SIZE }, // Limit file size to 5MB
 });
 
 export const uploadImageFromBuffer = (buffer, options) => {

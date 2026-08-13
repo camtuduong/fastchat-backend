@@ -40,7 +40,7 @@ const messageSchema = new mongoose.Schema(
       {
         type: {
           type: String,
-          enum: ["image", "video", "file"],
+          enum: ["image", "video", "file", "sticker"],
           required: true,
         },
         url: { type: String, required: true },
