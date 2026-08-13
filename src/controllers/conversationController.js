@@ -19,6 +19,8 @@ import {
   emitUpdateGroupName,
 } from "../utils/conversationHelper.js";
 
+export const MAX_ATTACHMENT_FILES = 10; // Maximum number of attachments per message
+
 /* 
     =============Lấy tin nhắn trong cuộc trò chuyện================
     - Kiểm tra xem conversationId có tồn tại không?
@@ -860,6 +862,56 @@ export const favoriteInConversation = async function (req, res) {
       .json({ message: "Conversation added to favorites successfully" });
   } catch (error) {
     console.error("Error adding favorite conversation:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const uploadAttachment = async function (req, res) {
+  try {
+    const files = req.files;
+    const { conversationId } = req.params;
+
+    if (!conversationId) {
+      return res.status(400).json({ message: "Conversation Id is required" });
+    }
+
+    if (!files || files.length === 0) {
+      return res.status(400).json({ message: "No files uploaded" });
+    }
+
+    if (files.length > MAX_ATTACHMENT_FILES) {
+      return res.status(400).json({
+        message: `You can upload a maximum of ${MAX_ATTACHMENT_FILES} files at once`,
+      });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      "participants.userId": req.user._id,
+    });
+
+    if (!conversation) {
+      return res
+        .status(404)
+        .json({ message: "Conversation not found or you are not a member" });
+    }
+
+    // Upload the attachment to Cloudinary
+    const uploadResults = [];
+    for (const file of files) {
+      const result = await uploadImageFromBuffer(file.buffer, {
+        folder: "fastchat/attachments",
+        resource_type: "auto",
+        transformation: [{ width: 400, height: 400, crop: "fill" }],
+      });
+      uploadResults.push(result.secure_url);
+    }
+
+    return res.status(200).json({
+      urls: uploadResults,
+    });
+  } catch (error) {
+    console.error("Error uploading attachment:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };

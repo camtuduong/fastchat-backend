@@ -13,6 +13,8 @@ import {
   uploadGroupAvatar,
   updateGroupName,
   favoriteInConversation,
+  uploadAttachment,
+  MAX_ATTACHMENT_FILES,
 } from "../controllers/conversationController.js";
 import { upload } from "../middlewares/uploadMiddleware.js";
 
@@ -38,6 +40,11 @@ router.post(
   "/:conversationId/upload-avatar",
   upload.single("file"),
   uploadGroupAvatar,
+);
+router.post(
+  "/:conversationId/upload",
+  upload.array("files", MAX_ATTACHMENT_FILES),
+  uploadAttachment,
 );
 
 router.patch("/:conversationId/rename", updateGroupName);
