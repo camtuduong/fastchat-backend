@@ -902,7 +902,7 @@ export const uploadAttachment = async function (req, res) {
       const result = await uploadImageFromBuffer(file.buffer, {
         folder: "fastchat/attachments",
         resource_type: "auto",
-        transformation: [{ width: 400, height: 400, crop: "fill" }],
+        transformation: [{ width: 800, height: 800, crop: "fit" }],
       });
       uploadResults.push(result.secure_url);
     }
@@ -912,6 +912,57 @@ export const uploadAttachment = async function (req, res) {
     });
   } catch (error) {
     console.error("Error uploading attachment:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const getAllAttachmentShareInConversation = async function (req, res) {
+  try {
+    const { conversationId } = req.params;
+
+    if (!conversationId) {
+      return res.status(400).json({ message: "Conversation Id is required" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      "participants.userId": req.user._id,
+    });
+
+    if (!conversation) {
+      return res
+        .status(404)
+        .json({ message: "Conversation not found or you are not a member" });
+    }
+
+    const messageGotAttachment = await Message.find({
+      conversationId: conversationId,
+      "attachments.0.type": "image",
+    })
+      .sort({ createdAt: -1 })
+      .select("attachments.type attachments.url createdAt sender")
+      .populate({
+        path: "sender.userId",
+        select: "displayName avatarUrl",
+      })
+      .lean();
+
+    const attachments = messageGotAttachment.flatMap((message) =>
+      message.attachments.map((attachment) => ({
+        type: attachment.type,
+        url: attachment.url,
+        createdAt: message.createdAt,
+        sender: {
+          userId: message.sender.userId._id,
+          displayName: message.sender.userId.displayName,
+          avatarUrl: message.sender.userId.avatarUrl,
+        },
+      })),
+    );
+
+    return res.status(200).json({ attachments });
+  } catch (error) {
+    console.error("Error fetching attachments in conversation:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
