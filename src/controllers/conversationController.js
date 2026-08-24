@@ -18,6 +18,8 @@ import {
   emitUpdateGroupAvatar,
   emitUpdateGroupName,
 } from "../utils/conversationHelper.js";
+import Share from "../models/Share.js";
+import crypto from "crypto";
 
 export const MAX_ATTACHMENT_FILES = 10; // Maximum number of attachments per message
 
@@ -485,16 +487,24 @@ export const getConversationById = async function (req, res) {
     const { conversationId } = req.params;
     const userId = req.user._id;
 
-    const filter = {
-      _id: new mongoose.Types.ObjectId(conversationId),
-    };
-
     if (!conversationId) {
       return res.status(400).json({ message: "Conversation Id is required" });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({
+        message: "Invalid conversation ID",
+      });
+    }
+
+    const conversationObjectId = new mongoose.Types.ObjectId(conversationId);
+
+    const filter = {
+      _id: conversationObjectId,
+    };
+
     const isMember = await Conversation.exists({
-      _id: conversationId,
+      _id: conversationObjectId,
       "participants.userId": userId,
     });
 
@@ -963,6 +973,137 @@ export const getAllAttachmentShareInConversation = async function (req, res) {
     return res.status(200).json({ attachments });
   } catch (error) {
     console.error("Error fetching attachments in conversation:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const shareConversation = async function (req, res) {
+  try {
+    const { conversationId } = req.params;
+
+    if (!conversationId) {
+      return res.status(400).json({ message: "Conversation Id is required" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      "participants.userId": req.user._id,
+    });
+
+    if (!conversation) {
+      return res
+        .status(404)
+        .json({ message: "Conversation not found or you are not a member" });
+    }
+
+    const oldToken = await Share.findOne({
+      conversationId: conversationId,
+      createdBy: req.user._id,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (oldToken) {
+      return res.status(200).json({
+        message: "Share token already exists",
+        token: oldToken.token,
+      });
+    }
+    // If no old token exists, create a new one
+    const newToken = new Share({
+      conversationId: conversationId,
+      createdBy: req.user._id,
+      token: crypto.randomBytes(16).toString("hex"),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+    });
+
+    await newToken.save();
+
+    return res.status(200).json({
+      message: "Share token created",
+      token: newToken.token,
+    });
+  } catch (error) {
+    console.error("Error sharing conversation:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const joinConversationWithToken = async function (req, res) {
+  try {
+    const token = req.query.token;
+    const io = req.app.get("io");
+
+    if (!token) {
+      return res.status(400).json({ message: "Token is required" });
+    }
+
+    const share = await Share.findOne({
+      token: token,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!share) {
+      return res.status(404).json({ message: "Invalid or expired token" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: share.conversationId,
+      type: "group",
+      "participants.userId": share.createdBy,
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    const isAlreadyMember = conversation.participants.some(
+      (p) => p.userId.toString() === req.user._id.toString(),
+    );
+
+    if (isAlreadyMember) {
+      return res.status(200).json({
+        message: "You are already a member of this conversation",
+        conversationId: conversation._id,
+      });
+    }
+
+    const user = await User.findById(req.user._id).select(
+      "displayName avatarUrl",
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    conversation.participants.push({
+      userId: req.user._id,
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
+      joinedAt: new Date(),
+    });
+
+    await conversation.save();
+
+    const systemMessage = new Message({
+      conversationId: conversation._id,
+      content: `<b>${req.user.displayName}</b> has joined the conversation`,
+      sender: {
+        userId: share.createdBy, // Use the creator of the share token as the sender
+      },
+      system: {
+        action: "share_conversation",
+        newMemberIds: req.user._id.toString(),
+      },
+      createdAt: new Date(),
+    });
+    await systemMessage.save();
+
+    emitNewMessage(io, conversation, systemMessage);
+    emitAddMember(io, conversation._id, [req.user._id.toString()]);
+
+    return res.status(200).json({ conversationId: conversation._id });
+  } catch (error) {
+    console.error("Error joining conversation with token:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
