@@ -25,3 +25,10 @@ export const emitUpdateGroupName = (io, conversationId, groupName) => {
     groupName,
   });
 };
+
+export const emitNewThread = (io, conversationId, message) => {
+  io.to(conversationId.toString()).emit("new-thread", {
+    conversationId,
+    message,
+  });
+};

@@ -53,6 +53,11 @@ const messageSchema = new mongoose.Schema(
       ref: "Message",
       default: null,
     },
+    threadId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Conversation",
+      default: null,
+    },
     system: {
       action: {
         type: String,
@@ -61,6 +66,7 @@ const messageSchema = new mongoose.Schema(
           "rename_group",
           "change_group_avatar",
           "add_member",
+          "share_conversation",
           "remove_member",
           "leave_group",
           "pin_message",

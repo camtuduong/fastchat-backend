@@ -16,6 +16,9 @@ import {
   uploadAttachment,
   MAX_ATTACHMENT_FILES,
   getAllAttachmentShareInConversation,
+  shareConversation,
+  joinConversationWithToken,
+  getThreadSurface,
 } from "../controllers/conversationController.js";
 import { upload } from "../middlewares/uploadMiddleware.js";
 
@@ -23,6 +26,8 @@ const router = express.Router();
 
 router.get("/", getAllConversations);
 router.get("/:conversationId/messages", getMessagesInConversation);
+
+router.get("/share", joinConversationWithToken);
 
 router.get("/:conversationId", getConversationById);
 router.post("/new", createNewConversation);
@@ -42,6 +47,8 @@ router.post(
   upload.single("file"),
   uploadGroupAvatar,
 );
+
+router.get("/:conversationId/attachments", getAllAttachmentShareInConversation);
 router.post(
   "/:conversationId/upload",
   upload.array("files", MAX_ATTACHMENT_FILES),
@@ -49,9 +56,10 @@ router.post(
 );
 
 router.patch("/:conversationId/rename", updateGroupName);
-
 router.post("/:conversationId/favorite", favoriteInConversation);
+//share conversation
+router.post("/:conversationId/shares", shareConversation);
 
-//attachments
-router.get("/:conversationId/attachments", getAllAttachmentShareInConversation);
+//thread surface
+router.get("/:threadId/thread-surface", getThreadSurface);
 export default router;

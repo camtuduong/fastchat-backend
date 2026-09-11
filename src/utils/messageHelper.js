@@ -49,6 +49,21 @@ export const emitNewMessage = (io, conversation, message) => {
   });
 };
 
+export const emitThreadSurfaceUpdate = (io, conversation, message) => {
+  io.to(conversation._id.toString()).emit("thread-surface-update", {
+    threadId: conversation._id,
+    lastSender: message?.sender
+      ? {
+          _id: message.sender.userId,
+          displayName: message.sender.displayName,
+          avatarUrl: message.sender.avatarUrl,
+        }
+      : null,
+    lastMessageAt: conversation.lastMessageAt,
+    unreadCount: conversation.unreadCount,
+  });
+};
+
 //update db
 export const updateConversationAfterDeleteMessage = (
   conversation,

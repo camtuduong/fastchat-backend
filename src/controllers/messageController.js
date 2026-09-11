@@ -4,6 +4,7 @@ import { buildMessagePipeline } from "../utils/buildMessagePipeline.js";
 import {
   emitDeleteMessage,
   emitNewMessage,
+  emitThreadSurfaceUpdate,
   updateConversationAfterCreateMessage,
   updateConversationAfterDeleteMessage,
 } from "../utils/messageHelper.js";
@@ -119,6 +120,10 @@ export const sendMessage = async (req, res) => {
     );
 
     emitNewMessage(io, conversation, message);
+    if (conversation.type === "thread") {
+      emitThreadSurfaceUpdate(io, conversation, message);
+    }
+
     res.status(201).json({ message: "Message sent successfully" });
   } catch (error) {
     console.error(error);
@@ -179,6 +184,7 @@ export const deleteMessageWithEveryOne = async (req, res) => {
 
     const newLatestMessage = await Message.findOne({
       conversationId: message.conversationId,
+      threadId: { $exists: false },
     }).sort({ createdAt: -1 });
 
     const isDeletingLastMessage =
@@ -191,6 +197,9 @@ export const deleteMessageWithEveryOne = async (req, res) => {
     );
     await conversation.save();
 
+    if (message.threadId) {
+      await Conversation.findByIdAndDelete(message.threadId);
+    }
     emitDeleteMessage(
       io,
       conversation,

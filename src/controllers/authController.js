@@ -154,7 +154,7 @@ export const signIn = async (req, res) => {
       maxAge: DEVICE_ID_EXPIRES_IN,
     });
 
-    return res.json({ message: "Sign in successful", accessToken });
+    return res.status(200).json({ message: "Sign in successful", accessToken });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });

@@ -14,10 +14,13 @@ import { buildConversationPipeline } from "../utils/buildConversationPipeline.js
 import { uploadImageFromBuffer } from "../middlewares/uploadMiddleware.js";
 import {
   emitAddMember,
+  emitNewThread,
   emitRemoveMember,
   emitUpdateGroupAvatar,
   emitUpdateGroupName,
 } from "../utils/conversationHelper.js";
+import Share from "../models/Share.js";
+import crypto from "crypto";
 
 export const MAX_ATTACHMENT_FILES = 10; // Maximum number of attachments per message
 
@@ -61,20 +64,40 @@ export const getMessagesInConversation = async function (req, res) {
       filter.createdAt = { $lt: new Date(cursor) };
     }
 
-    if (conversation) {
-      const participant = conversation.participants.find(
-        (p) => p.userId.toString() === req.user._id.toString(),
-      );
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
 
-      if (participant.clearedAt) {
-        filter.createdAt = {
-          ...filter.createdAt,
-          $gt: participant.clearedAt,
-        };
+    const participant = conversation.participants.find(
+      (p) => p.userId.toString() === req.user._id.toString(),
+    );
+
+    if (participant.clearedAt) {
+      filter.createdAt = {
+        ...filter.createdAt,
+        $gt: participant.clearedAt,
+      };
+    }
+
+    if (conversation.type === "thread") {
+      const parentMessageId = conversation.parentMessageId;
+
+      if (parentMessageId) {
+        filter.$or = [
+          { conversationId: filter.conversationId },
+          { _id: parentMessageId },
+        ];
+        delete filter.conversationId;
       }
     }
 
-    const messages = await Message.aggregate(buildMessagePipeline(filter, 40));
+    const messages = await Message.aggregate(
+      buildMessagePipeline(
+        filter,
+        40,
+        conversation.type === "thread" ? { threadId: 0 } : {},
+      ),
+    );
 
     const nextCursor = getNextCursor(messages, "createdAt");
 
@@ -95,6 +118,7 @@ export const getAllConversations = async function (req, res) {
           hidden: { $ne: true },
         },
       },
+      type: { $ne: "thread" },
     };
 
     if (cursor) {
@@ -147,48 +171,65 @@ export const getAllConversations = async function (req, res) {
 export const createNewConversation = async function (req, res) {
   try {
     const senderId = req.user._id;
-    const { type, participants } = req.body;
+    const { participants, parentMessageId } = req.body;
     const io = req.app.get("io");
-
-    //kiểm tra xem type và participants có hợp lệ không
-    if (!type) {
-      return res.status(400).json({ message: "Type is required" });
-    }
-
-    if (!["direct", "group"].includes(type)) {
-      return res
-        .status(400)
-        .json({ message: "Type must be either 'direct' or 'group'" });
-    }
 
     if (!participants || participants.length === 0) {
       return res.status(400).json({ message: "Participants are required" });
     }
 
-    if (type === "group" && participants.length <= 1) {
-      return res.status(400).json({
-        message: "A group conversation must have at least 2 participants",
-      });
+    if (parentMessageId && !mongoose.Types.ObjectId.isValid(parentMessageId)) {
+      return res.status(400).json({ message: "Invalid parentMessageId" });
     }
 
     //kiểm tra xem đã có cuộc trò chuyện giữa các thành viên trong DB chưa
-    let isExistingConversation;
-
-    if (type === "direct" && participants.length === 1) {
-      isExistingConversation = await Conversation.findOne({
+    if (participants.length === 1) {
+      const isExistingConversation = await Conversation.findOne({
         type: "direct",
         "participants.userId": {
           $all: [senderId, participants[0]],
         },
         participants: { $size: 2 },
       });
+
+      if (isExistingConversation) {
+        return res.status(200).json({
+          message: "Conversation already exists",
+          conversation: isExistingConversation._id,
+        });
+      }
     }
 
-    if (isExistingConversation) {
-      return res.status(200).json({
-        message: "Conversation already exists",
-        conversation: isExistingConversation._id,
-      });
+    //kiểm tra xem nếu có message parentMessageId thì phải tồn tại trong DB
+    let conversationParent;
+    let parentMessage;
+    if (parentMessageId) {
+      parentMessage = await Message.findById(parentMessageId);
+
+      if (parentMessage.threadId) {
+        return res.status(200).json({
+          message: "Parent message is already part of a thread",
+          conversation: parentMessage.threadId,
+        });
+      }
+
+      if (parentMessageId && !parentMessage) {
+        return res.status(400).json({ message: "Parent message not found" });
+      }
+
+      //nếu có parentMessageId thì lấy conversation của parent message
+      if (parentMessage) {
+        conversationParent = await Conversation.findOne({
+          _id: parentMessage.conversationId,
+          "participants.userId": senderId,
+        });
+        if (!conversationParent) {
+          return res.status(400).json({
+            message:
+              "Parent conversation not found or you are not a member of this conversation",
+          });
+        }
+      }
     }
 
     const users = await User.find({
@@ -215,7 +256,11 @@ export const createNewConversation = async function (req, res) {
     });
 
     const newConversation = await Conversation.create({
-      type,
+      type: parentMessageId
+        ? "thread"
+        : participants.length > 1
+          ? "group"
+          : "direct",
       participants: [
         {
           userId: senderId,
@@ -226,13 +271,12 @@ export const createNewConversation = async function (req, res) {
         ...participantsWithUsernames,
       ],
       group: {
-        name: type === "group" ? req.body.groupName : undefined,
+        name: participants.length > 1 ? req.body.groupName : undefined,
         createdAt: new Date(),
-        createdBy: type === "group" ? req.user._id : undefined,
+        createdBy: req.user._id,
       },
+      parentMessageId: parentMessageId ?? undefined,
     });
-
-    const conversationId = newConversation._id.toString();
 
     for (const participant of newConversation.participants) {
       const socketIds = onlineUsers.get(participant.userId.toString());
@@ -240,14 +284,14 @@ export const createNewConversation = async function (req, res) {
       if (!socketIds) continue;
 
       for (const socketId of socketIds) {
-        io.sockets.sockets.get(socketId)?.join(conversationId);
+        io.sockets.sockets.get(socketId)?.join(newConversation._id.toString());
       }
     }
 
-    if (type === "group") {
+    if (participants.length > 1 && !parentMessageId) {
       const systemMessage = new Message({
         conversationId: newConversation._id,
-        content: `<b>${req.user.displayName}</b> has created the group</b>`,
+        content: `<b>${req.user.displayName}</b> has created the group`,
         sender: {
           userId: req.user._id,
         },
@@ -260,6 +304,16 @@ export const createNewConversation = async function (req, res) {
       await systemMessage.save();
 
       emitNewMessage(io, newConversation, systemMessage);
+    }
+
+    if (parentMessageId && conversationParent) {
+      newConversation.parentMessageId = parentMessageId;
+      await newConversation.save();
+
+      parentMessage.threadId = newConversation._id;
+      await parentMessage.save();
+
+      emitNewThread(io, conversationParent._id, parentMessage);
     }
     return res.status(200).json({
       message: "Conversation created successfully",
@@ -485,16 +539,24 @@ export const getConversationById = async function (req, res) {
     const { conversationId } = req.params;
     const userId = req.user._id;
 
-    const filter = {
-      _id: new mongoose.Types.ObjectId(conversationId),
-    };
-
     if (!conversationId) {
       return res.status(400).json({ message: "Conversation Id is required" });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({
+        message: "Invalid conversation ID",
+      });
+    }
+
+    const conversationObjectId = new mongoose.Types.ObjectId(conversationId);
+
+    const filter = {
+      _id: conversationObjectId,
+    };
+
     const isMember = await Conversation.exists({
-      _id: conversationId,
+      _id: conversationObjectId,
       "participants.userId": userId,
     });
 
@@ -963,6 +1025,178 @@ export const getAllAttachmentShareInConversation = async function (req, res) {
     return res.status(200).json({ attachments });
   } catch (error) {
     console.error("Error fetching attachments in conversation:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const shareConversation = async function (req, res) {
+  try {
+    const { conversationId } = req.params;
+
+    if (!conversationId) {
+      return res.status(400).json({ message: "Conversation Id is required" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      "participants.userId": req.user._id,
+    });
+
+    if (!conversation) {
+      return res
+        .status(404)
+        .json({ message: "Conversation not found or you are not a member" });
+    }
+
+    const oldToken = await Share.findOne({
+      conversationId: conversationId,
+      createdBy: req.user._id,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (oldToken) {
+      return res.status(200).json({
+        message: "Share token already exists",
+        token: oldToken.token,
+      });
+    }
+    // If no old token exists, create a new one
+    const newToken = new Share({
+      conversationId: conversationId,
+      createdBy: req.user._id,
+      token: crypto.randomBytes(16).toString("hex"),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+    });
+
+    await newToken.save();
+
+    return res.status(200).json({
+      message: "Share token created",
+      token: newToken.token,
+    });
+  } catch (error) {
+    console.error("Error sharing conversation:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const joinConversationWithToken = async function (req, res) {
+  try {
+    const token = req.query.token;
+    const io = req.app.get("io");
+
+    if (!token) {
+      return res.status(400).json({ message: "Token is required" });
+    }
+
+    const share = await Share.findOne({
+      token: token,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!share) {
+      return res.status(404).json({ message: "Invalid or expired token" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: share.conversationId,
+      type: "group",
+      "participants.userId": share.createdBy,
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    const isAlreadyMember = conversation.participants.some(
+      (p) => p.userId.toString() === req.user._id.toString(),
+    );
+
+    if (isAlreadyMember) {
+      return res.status(200).json({
+        message: "You are already a member of this conversation",
+        conversationId: conversation._id,
+      });
+    }
+
+    const user = await User.findById(req.user._id).select(
+      "displayName avatarUrl",
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    conversation.participants.push({
+      userId: req.user._id,
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
+      joinedAt: new Date(),
+    });
+
+    await conversation.save();
+
+    const systemMessage = new Message({
+      conversationId: conversation._id,
+      content: `<b>${req.user.displayName}</b> has joined the conversation`,
+      sender: {
+        userId: share.createdBy, // Use the creator of the share token as the sender
+      },
+      system: {
+        action: "share_conversation",
+        newMemberIds: req.user._id.toString(),
+      },
+      createdAt: new Date(),
+    });
+    await systemMessage.save();
+
+    emitNewMessage(io, conversation, systemMessage);
+    emitAddMember(io, conversation._id, [req.user._id.toString()]);
+
+    return res.status(200).json({ conversationId: conversation._id });
+  } catch (error) {
+    console.error("Error joining conversation with token:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const getThreadSurface = async function (req, res) {
+  try {
+    const { threadId } = req.params;
+    if (!threadId) {
+      return res.status(400).json({ message: "Thread ID is required" });
+    }
+
+    const thread = await Conversation.findOne({
+      _id: threadId,
+      type: "thread",
+      "participants.userId": req.user._id,
+    })
+      .select("lastMessage.sender.userId lastMessageAt unreadCount")
+      .populate({
+        path: "lastMessage.sender.userId",
+        select: "displayName avatarUrl",
+      });
+
+    if (!thread) {
+      return res.status(404).json({ message: "Thread not found" });
+    }
+
+    const countMessageInThread = await Message.countDocuments({
+      $or: [{ conversationId: thread._id }, { threadId: thread._id }],
+    });
+
+    const threadSurface = {
+      threadId: thread._id,
+      lastSender: thread.lastMessage?.sender?.userId ?? null,
+      lastMessageAt: thread.lastMessageAt,
+      unreadCount: thread.unreadCount?.get(req.user._id.toString()) ?? 0,
+      countMessageInThread,
+    };
+
+    return res.status(200).json({ threadSurface });
+  } catch (error) {
+    console.error("Error in threadSurface:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
