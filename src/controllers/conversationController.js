@@ -275,7 +275,7 @@ export const createNewConversation = async function (req, res) {
         createdAt: new Date(),
         createdBy: req.user._id,
       },
-      rootMessage: parentMessageId ?? undefined,
+      parentMessageId: parentMessageId ?? undefined,
     });
 
     for (const participant of newConversation.participants) {

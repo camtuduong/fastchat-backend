@@ -179,6 +179,7 @@ export const deleteMessageWithEveryOne = async (req, res) => {
 
     const newLatestMessage = await Message.findOne({
       conversationId: message.conversationId,
+      threadId: { $exists: false },
     }).sort({ createdAt: -1 });
 
     const isDeletingLastMessage =
@@ -191,6 +192,9 @@ export const deleteMessageWithEveryOne = async (req, res) => {
     );
     await conversation.save();
 
+    if (message.threadId) {
+      await Conversation.findByIdAndDelete(message.threadId);
+    }
     emitDeleteMessage(
       io,
       conversation,
