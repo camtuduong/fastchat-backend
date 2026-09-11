@@ -14,6 +14,7 @@ import { buildConversationPipeline } from "../utils/buildConversationPipeline.js
 import { uploadImageFromBuffer } from "../middlewares/uploadMiddleware.js";
 import {
   emitAddMember,
+  emitNewThread,
   emitRemoveMember,
   emitUpdateGroupAvatar,
   emitUpdateGroupName,
@@ -63,20 +64,40 @@ export const getMessagesInConversation = async function (req, res) {
       filter.createdAt = { $lt: new Date(cursor) };
     }
 
-    if (conversation) {
-      const participant = conversation.participants.find(
-        (p) => p.userId.toString() === req.user._id.toString(),
-      );
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
 
-      if (participant.clearedAt) {
-        filter.createdAt = {
-          ...filter.createdAt,
-          $gt: participant.clearedAt,
-        };
+    const participant = conversation.participants.find(
+      (p) => p.userId.toString() === req.user._id.toString(),
+    );
+
+    if (participant.clearedAt) {
+      filter.createdAt = {
+        ...filter.createdAt,
+        $gt: participant.clearedAt,
+      };
+    }
+
+    if (conversation.type === "thread") {
+      const parentMessageId = conversation.parentMessageId;
+
+      if (parentMessageId) {
+        filter.$or = [
+          { conversationId: filter.conversationId },
+          { _id: parentMessageId },
+        ];
+        delete filter.conversationId;
       }
     }
 
-    const messages = await Message.aggregate(buildMessagePipeline(filter, 40));
+    const messages = await Message.aggregate(
+      buildMessagePipeline(
+        filter,
+        40,
+        conversation.type === "thread" ? { threadId: 0 } : {},
+      ),
+    );
 
     const nextCursor = getNextCursor(messages, "createdAt");
 
@@ -97,6 +118,7 @@ export const getAllConversations = async function (req, res) {
           hidden: { $ne: true },
         },
       },
+      type: { $ne: "thread" },
     };
 
     if (cursor) {
@@ -149,48 +171,65 @@ export const getAllConversations = async function (req, res) {
 export const createNewConversation = async function (req, res) {
   try {
     const senderId = req.user._id;
-    const { type, participants } = req.body;
+    const { participants, parentMessageId } = req.body;
     const io = req.app.get("io");
-
-    //kiểm tra xem type và participants có hợp lệ không
-    if (!type) {
-      return res.status(400).json({ message: "Type is required" });
-    }
-
-    if (!["direct", "group"].includes(type)) {
-      return res
-        .status(400)
-        .json({ message: "Type must be either 'direct' or 'group'" });
-    }
 
     if (!participants || participants.length === 0) {
       return res.status(400).json({ message: "Participants are required" });
     }
 
-    if (type === "group" && participants.length <= 1) {
-      return res.status(400).json({
-        message: "A group conversation must have at least 2 participants",
-      });
+    if (parentMessageId && !mongoose.Types.ObjectId.isValid(parentMessageId)) {
+      return res.status(400).json({ message: "Invalid parentMessageId" });
     }
 
     //kiểm tra xem đã có cuộc trò chuyện giữa các thành viên trong DB chưa
-    let isExistingConversation;
-
-    if (type === "direct" && participants.length === 1) {
-      isExistingConversation = await Conversation.findOne({
+    if (participants.length === 1) {
+      const isExistingConversation = await Conversation.findOne({
         type: "direct",
         "participants.userId": {
           $all: [senderId, participants[0]],
         },
         participants: { $size: 2 },
       });
+
+      if (isExistingConversation) {
+        return res.status(200).json({
+          message: "Conversation already exists",
+          conversation: isExistingConversation._id,
+        });
+      }
     }
 
-    if (isExistingConversation) {
-      return res.status(200).json({
-        message: "Conversation already exists",
-        conversation: isExistingConversation._id,
-      });
+    //kiểm tra xem nếu có message parentMessageId thì phải tồn tại trong DB
+    let conversationParent;
+    let parentMessage;
+    if (parentMessageId) {
+      parentMessage = await Message.findById(parentMessageId);
+
+      if (parentMessage.threadId) {
+        return res.status(200).json({
+          message: "Parent message is already part of a thread",
+          conversation: parentMessage.threadId,
+        });
+      }
+
+      if (parentMessageId && !parentMessage) {
+        return res.status(400).json({ message: "Parent message not found" });
+      }
+
+      //nếu có parentMessageId thì lấy conversation của parent message
+      if (parentMessage) {
+        conversationParent = await Conversation.findOne({
+          _id: parentMessage.conversationId,
+          "participants.userId": senderId,
+        });
+        if (!conversationParent) {
+          return res.status(400).json({
+            message:
+              "Parent conversation not found or you are not a member of this conversation",
+          });
+        }
+      }
     }
 
     const users = await User.find({
@@ -217,7 +256,11 @@ export const createNewConversation = async function (req, res) {
     });
 
     const newConversation = await Conversation.create({
-      type,
+      type: parentMessageId
+        ? "thread"
+        : participants.length > 1
+          ? "group"
+          : "direct",
       participants: [
         {
           userId: senderId,
@@ -228,13 +271,12 @@ export const createNewConversation = async function (req, res) {
         ...participantsWithUsernames,
       ],
       group: {
-        name: type === "group" ? req.body.groupName : undefined,
+        name: participants.length > 1 ? req.body.groupName : undefined,
         createdAt: new Date(),
-        createdBy: type === "group" ? req.user._id : undefined,
+        createdBy: req.user._id,
       },
+      rootMessage: parentMessageId ?? undefined,
     });
-
-    const conversationId = newConversation._id.toString();
 
     for (const participant of newConversation.participants) {
       const socketIds = onlineUsers.get(participant.userId.toString());
@@ -242,14 +284,14 @@ export const createNewConversation = async function (req, res) {
       if (!socketIds) continue;
 
       for (const socketId of socketIds) {
-        io.sockets.sockets.get(socketId)?.join(conversationId);
+        io.sockets.sockets.get(socketId)?.join(newConversation._id.toString());
       }
     }
 
-    if (type === "group") {
+    if (participants.length > 1 && !parentMessageId) {
       const systemMessage = new Message({
         conversationId: newConversation._id,
-        content: `<b>${req.user.displayName}</b> has created the group</b>`,
+        content: `<b>${req.user.displayName}</b> has created the group`,
         sender: {
           userId: req.user._id,
         },
@@ -262,6 +304,16 @@ export const createNewConversation = async function (req, res) {
       await systemMessage.save();
 
       emitNewMessage(io, newConversation, systemMessage);
+    }
+
+    if (parentMessageId && conversationParent) {
+      newConversation.parentMessageId = parentMessageId;
+      await newConversation.save();
+
+      parentMessage.threadId = newConversation._id;
+      await parentMessage.save();
+
+      emitNewThread(io, conversationParent._id, parentMessage);
     }
     return res.status(200).json({
       message: "Conversation created successfully",

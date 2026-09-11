@@ -53,6 +53,11 @@ const messageSchema = new mongoose.Schema(
       ref: "Message",
       default: null,
     },
+    threadId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Conversation",
+      default: null,
+    },
     system: {
       action: {
         type: String,

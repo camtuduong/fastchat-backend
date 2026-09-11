@@ -79,11 +79,15 @@ export const replyPipeline = [
   },
 ];
 
-export const buildMessagePipeline = (filter, limit = 40) => [
+export const buildMessagePipeline = (filter, limit = 40, project = null) => [
   { $match: filter },
   { $sort: { createdAt: -1 } },
   { $limit: limit },
 
   ...senderPipeline,
   ...replyPipeline,
+
+  ...(project && Object.keys(project).length > 0
+    ? [{ $project: project }]
+    : []),
 ];

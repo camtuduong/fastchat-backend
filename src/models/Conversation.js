@@ -118,7 +118,7 @@ const conversationSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ["direct", "group"],
+      enum: ["direct", "group", "thread"],
       required: true,
     },
     //người tham gia cuộc trò chuyện, bao gồm cả người tạo và người được mời
@@ -161,12 +161,20 @@ const conversationSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
+    parentMessageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+      default: null,
+    },
   },
   {
     timestamps: true,
   },
 );
 conversationSchema.index({ "participants.userId": 1, lastMessageAt: -1 });
+conversationSchema.index({
+  parentMessageId: 1,
+});
 
 const Conversation = mongoose.model("Conversation", conversationSchema);
 export default Conversation;
