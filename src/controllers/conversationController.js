@@ -1159,3 +1159,44 @@ export const joinConversationWithToken = async function (req, res) {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+export const getThreadSurface = async function (req, res) {
+  try {
+    const { threadId } = req.params;
+    if (!threadId) {
+      return res.status(400).json({ message: "Thread ID is required" });
+    }
+
+    const thread = await Conversation.findOne({
+      _id: threadId,
+      type: "thread",
+      "participants.userId": req.user._id,
+    })
+      .select("lastMessage.sender.userId lastMessageAt unreadCount")
+      .populate({
+        path: "lastMessage.sender.userId",
+        select: "displayName avatarUrl",
+      });
+
+    if (!thread) {
+      return res.status(404).json({ message: "Thread not found" });
+    }
+
+    const countMessageInThread = await Message.countDocuments({
+      $or: [{ conversationId: thread._id }, { threadId: thread._id }],
+    });
+
+    const threadSurface = {
+      threadId: thread._id,
+      lastSender: thread.lastMessage?.sender?.userId ?? null,
+      lastMessageAt: thread.lastMessageAt,
+      unreadCount: thread.unreadCount?.get(req.user._id.toString()) ?? 0,
+      countMessageInThread,
+    };
+
+    return res.status(200).json({ threadSurface });
+  } catch (error) {
+    console.error("Error in threadSurface:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};

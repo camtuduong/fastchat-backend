@@ -18,6 +18,7 @@ import {
   getAllAttachmentShareInConversation,
   shareConversation,
   joinConversationWithToken,
+  getThreadSurface,
 } from "../controllers/conversationController.js";
 import { upload } from "../middlewares/uploadMiddleware.js";
 
@@ -58,4 +59,7 @@ router.patch("/:conversationId/rename", updateGroupName);
 router.post("/:conversationId/favorite", favoriteInConversation);
 //share conversation
 router.post("/:conversationId/shares", shareConversation);
+
+//thread surface
+router.get("/:threadId/thread-surface", getThreadSurface);
 export default router;

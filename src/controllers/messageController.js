@@ -4,6 +4,7 @@ import { buildMessagePipeline } from "../utils/buildMessagePipeline.js";
 import {
   emitDeleteMessage,
   emitNewMessage,
+  emitThreadSurfaceUpdate,
   updateConversationAfterCreateMessage,
   updateConversationAfterDeleteMessage,
 } from "../utils/messageHelper.js";
@@ -119,6 +120,10 @@ export const sendMessage = async (req, res) => {
     );
 
     emitNewMessage(io, conversation, message);
+    if (conversation.type === "thread") {
+      emitThreadSurfaceUpdate(io, conversation, message);
+    }
+
     res.status(201).json({ message: "Message sent successfully" });
   } catch (error) {
     console.error(error);
