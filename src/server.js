@@ -85,10 +85,15 @@ app.use("/api/messages", messageRoute);
 app.use("/api/conversations", conversationRoute);
 app.use("/api/stickers", stickerRoute);
 
-cron.schedule("0 9 * * *", async () => {
-  await clearConversation();
-});
-
+cron.schedule(
+  "0 9 * * *",
+  async () => {
+    await clearConversation();
+  },
+  {
+    timezone: "Asia/Ho_Chi_Minh",
+  },
+);
 connectDB().then(() => {
   server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
