@@ -26,9 +26,34 @@ export const createSocketServer = (server, corsOptions) => {
     io.emit("online-users", Array.from(onlineUsers.keys()));
 
     const conversationIds = await getUserConversationsForSocket(user._id);
+
     // Join the user to their conversation rooms
     conversationIds.forEach((conversationId) => {
       socket.join(conversationId);
+    });
+
+    //typing
+    socket.on("typing", ({ conversationId }) => {
+      const userId = user._id.toString();
+      const userDisplayName = user.displayName ?? user.username;
+
+      socket.to(conversationId).emit("typing", {
+        conversationId,
+        userId,
+        userDisplayName,
+      });
+    });
+
+    //stopped typing
+    socket.on("stopped-typing", ({ conversationId }) => {
+      const userId = user._id.toString();
+      const userDisplayName = user.displayName ?? user.username;
+
+      socket.to(conversationId).emit("stopped-typing", {
+        conversationId,
+        userId,
+        userDisplayName,
+      });
     });
 
     socket.on("disconnect", () => {
@@ -43,6 +68,14 @@ export const createSocketServer = (server, corsOptions) => {
         if (socketIds.size === 0) {
           onlineUsers.delete(userId);
         }
+
+        // Notify all conversation rooms the user was part of that they stopped typing
+        socket.rooms.forEach((conversationId) => {
+          io.to(conversationId).emit("stopped-typing", {
+            conversationId,
+            userId,
+          });
+        });
       }
 
       io.emit("online-users", Array.from(onlineUsers.keys()));

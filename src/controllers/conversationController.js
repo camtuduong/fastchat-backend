@@ -279,6 +279,7 @@ export const createNewConversation = async function (req, res) {
       parentMessageId: parentMessageId ?? undefined,
     });
 
+    // Add the new conversation to the online users' socket rooms
     for (const participant of newConversation.participants) {
       const socketIds = onlineUsers.get(participant.userId.toString());
 
@@ -333,6 +334,7 @@ export const createNewConversation = async function (req, res) {
 
       emitNewThread(io, conversationParent._id, message);
     }
+
     return res.status(200).json({
       message: "Conversation created successfully",
       conversation: newConversation._id,
