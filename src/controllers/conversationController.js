@@ -203,6 +203,7 @@ export const createNewConversation = async function (req, res) {
     //kiểm tra xem nếu có message parentMessageId thì phải tồn tại trong DB
     let conversationParent;
     let parentMessage;
+
     if (parentMessageId) {
       parentMessage = await Message.findById(parentMessageId);
 
@@ -278,6 +279,7 @@ export const createNewConversation = async function (req, res) {
       parentMessageId: parentMessageId ?? undefined,
     });
 
+    // Add the new conversation to the online users' socket rooms
     for (const participant of newConversation.participants) {
       const socketIds = onlineUsers.get(participant.userId.toString());
 
@@ -308,13 +310,31 @@ export const createNewConversation = async function (req, res) {
 
     if (parentMessageId && conversationParent) {
       newConversation.parentMessageId = parentMessageId;
+      newConversation.lastMessageAt = parentMessage?.createdAt ?? null;
+      newConversation.lastMessage = {
+        _id: parentMessage?.sender?.userId ?? null,
+        content: parentMessage?.content ?? null,
+        sender: {
+          userId: parentMessage?.sender?.userId ?? null,
+        },
+      };
       await newConversation.save();
 
       parentMessage.threadId = newConversation._id;
       await parentMessage.save();
 
-      emitNewThread(io, conversationParent._id, parentMessage);
+      const [message] = await Message.aggregate(
+        buildMessagePipeline(
+          {
+            _id: parentMessage._id,
+          },
+          1,
+        ),
+      );
+
+      emitNewThread(io, conversationParent._id, message);
     }
+
     return res.status(200).json({
       message: "Conversation created successfully",
       conversation: newConversation._id,
@@ -1189,7 +1209,7 @@ export const getThreadSurface = async function (req, res) {
     const threadSurface = {
       threadId: thread._id,
       lastSender: thread.lastMessage?.sender?.userId ?? null,
-      lastMessageAt: thread.lastMessageAt,
+      lastMessageAt: thread.lastMessageAt ?? null,
       unreadCount: thread.unreadCount?.get(req.user._id.toString()) ?? 0,
       countMessageInThread,
     };

@@ -14,6 +14,7 @@ export const clearConversation = async () => {
         console.log(`Deleted conversation with ID: ${conversation._id}`);
       }
     });
+    console.log(`Finished checking all conversations.`);
   } catch (error) {
     console.error("Error clearing conversations:", error);
   }
