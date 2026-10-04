@@ -37,7 +37,7 @@ export const createSocketServer = (server, corsOptions) => {
       const userId = user._id.toString();
       const userDisplayName = user.displayName ?? user.username;
 
-      socket.to(conversationId).emit("typing", {
+      socket.to(conversationId).volatile.emit("typing", {
         conversationId,
         userId,
         userDisplayName,
