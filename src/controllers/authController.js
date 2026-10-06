@@ -1,13 +1,20 @@
 import bcrypt from "bcrypt";
+import { OAuth2Client } from "google-auth-library";
 import User from "../models/User.js";
 import Session from "../models/Session.js";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { env } from "../server.js";
+import { env } from "../config/env.js";
 
 const ACCESS_TOKEN_EXPIRES_IN = "15m";
 const REFRESH_TOKEN_EXPIRES_IN = 14 * 24 * 60 * 60 * 1000; //14 ngay
 const DEVICE_ID_EXPIRES_IN = 365 * 24 * 60 * 60 * 1000; //1 nam
+
+const client = new OAuth2Client(
+  env.GOOGLE_CLIENT_ID,
+  env.GOOGLE_CLIENT_SECRET,
+  "postmessage", // bắt buộc với popup flow của @react-oauth/google
+);
 
 /* 
   =============Đăng ký tài khoản================
@@ -94,6 +101,134 @@ export const signIn = async (req, res) => {
     }
 
     //lay deviceId tu header, neu khong co thi tao moi
+    let deviceId = req.cookies.deviceId;
+    if (!deviceId) {
+      deviceId = crypto.randomUUID();
+    }
+
+    //tim và kiểm tra xem có session nào hợp lệ cho userId và deviceId này không
+    const oldSession = await Session.findOne({
+      userId: user._id,
+      deviceId,
+      revokedAt: null,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (oldSession) {
+      oldSession.revokedAt = new Date(); //thu hoi session cu
+      oldSession.revokeReason = "New sign in"; //ly do thu hoi session cu
+      await oldSession.save();
+    }
+
+    //tao token
+    const accessToken = jwt.sign(
+      { userId: user._id },
+      env.ACCESS_TOKEN_SECRET,
+      {
+        expiresIn: ACCESS_TOKEN_EXPIRES_IN,
+      },
+    );
+
+    //tao refresh token
+    const refreshToken = crypto.randomBytes(64).toString("hex");
+    const refreshTokenHash = crypto
+      .createHash("sha256")
+      .update(refreshToken)
+      .digest("hex");
+
+    //luu refresh token vao database
+    await Session.create({
+      userId: user._id,
+      deviceId,
+      refreshToken: refreshTokenHash,
+      expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN),
+      revokedAt: null,
+      revokeReason: null,
+    });
+
+    //tra ve refresh token vao cookies
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: REFRESH_TOKEN_EXPIRES_IN,
+    });
+
+    res.cookie("deviceId", deviceId, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: DEVICE_ID_EXPIRES_IN,
+    });
+
+    return res.status(200).json({ message: "Sign in successful", accessToken });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+//Sign in with Google
+
+export const signInWithGoogle = async (req, res) => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({ message: "Credential is missing" });
+    }
+
+    const authorizationCode =
+      typeof credential === "string" ? credential : credential.code;
+
+    if (!authorizationCode) {
+      return res
+        .status(400)
+        .json({ message: "Google authorization code is missing" });
+    }
+
+    // Đổi credential lấy ID token từ Google.
+    const { tokens } = await client.getToken({ code: authorizationCode });
+
+    if (!tokens.id_token) {
+      return res.status(401).json({ message: "Google ID token is missing" });
+    }
+
+    //kiểm tra token và lấy thông tin người dùng từ Google
+    const ticket = await client.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+
+    if (!payload.email_verified) {
+      return res.status(401).json({ message: "Email hasn't been verified" });
+    }
+
+    const user = await User.findOne({ googleId: payload.sub });
+    if (!user) {
+      const existingEmail = await User.findOne({ email: payload.email });
+      if (existingEmail) {
+        return res.status(409).json({
+          message:
+            "Email is already associated with another account login by `User Name` and password",
+        });
+      }
+
+      // Tạo người dùng mới với thông tin từ Google
+      const newUser = new User({
+        username: payload.email.split("@")[0],
+        email: payload.email,
+        googleId: payload.sub,
+        displayName: payload.name,
+        hashPassword: null, // Set an empty password for Google sign-in users
+      });
+      await newUser.save();
+      return res
+        .status(201)
+        .json({ message: "Sign in with Google successful", user: newUser });
+    }
+
     let deviceId = req.cookies.deviceId;
     if (!deviceId) {
       deviceId = crypto.randomUUID();

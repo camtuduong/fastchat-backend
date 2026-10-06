@@ -1,6 +1,5 @@
 import { uploadImageFromBuffer } from "../middlewares/uploadMiddleware.js";
 import User from "../models/User.js";
-import { normalizeText } from "../utils/normalizeText.js";
 
 export const getMe = async (req, res) => {
   try {
@@ -52,12 +51,12 @@ export const findUserBySearch = async (req, res) => {
     if (!search) {
       return res.status(200).json({ users: [] });
     }
-    const normalizedSearch = normalizeText(search);
+
     const users = await User.find({
       $or: [
-        { username: { $regex: normalizedSearch, $options: "i" } },
-        { email: { $regex: normalizedSearch, $options: "i" } },
-        { displayName: { $regex: normalizedSearch, $options: "i" } },
+        { username: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { displayName: { $regex: search, $options: "i" } },
       ],
       _id: { $ne: req.user._id },
     }).select("username displayName avatarUrl");

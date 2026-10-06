@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       maxlength: 30,
     },
-    hashPassword: { type: String, required: true },
+    hashPassword: { type: String, default: null },
     email: {
       type: String,
       required: true,
@@ -21,10 +21,10 @@ const userSchema = new mongoose.Schema(
       maxlength: 100,
     },
     displayName: { type: String, required: true, trim: true, maxlength: 100 },
-    displayNameNormalized: { type: String, trim: true },
     avatarUrl: { type: String, trim: true },
     avatarId: { type: String, trim: true },
     bio: { type: String, maxlength: 500 },
+    googleId: { type: String, trim: true, unique: true, default: null },
     status: {
       type: String,
       enum: ["online", "offline", "away", "busy"],
@@ -39,7 +39,7 @@ const userSchema = new mongoose.Schema(
 
 userSchema.pre("save", function () {
   if (this.isModified("displayName")) {
-    this.displayNameNormalized = normalizeText(this.displayName);
+    this.displayName = normalizeText(this.displayName);
   }
 });
 

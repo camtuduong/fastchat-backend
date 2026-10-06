@@ -4,6 +4,8 @@ dotenv.config();
 
 export const env = {
   ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET,
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   KLIPY_API_KEY_01: process.env.KLIPY_API_KEY_01,
   KLIPY_API_KEY_02: process.env.KLIPY_API_KEY_02,
   KLIPY_URL: process.env.KLIPY_URL,
