@@ -2,6 +2,7 @@ import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import { buildMessagePipeline } from "../utils/buildMessagePipeline.js";
 import {
+  contentForAttachments,
   emitDeleteMessage,
   emitNewMessage,
   emitThreadSurfaceUpdate,
@@ -99,6 +100,11 @@ export const sendMessage = async (req, res) => {
       attachments,
       replyTo: replyTo ?? null,
     });
+
+    // Cập nhật nội dung hiển thị dựa trên attachments nếu content rỗng
+    if (!content) {
+      createdMessage.content = contentForAttachments(attachments);
+    }
 
     updateConversationAfterCreateMessage(
       conversation,
