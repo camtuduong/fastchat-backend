@@ -1,3 +1,19 @@
+export const contentForAttachments = (attachments) => {
+  if (attachments?.[0]?.type === "image") {
+    return `Sent ${attachments.length === 1 ? "an image" : attachments.length + " images"} `;
+  }
+  if (attachments?.[0]?.type === "video") {
+    return `Sent ${attachments.length === 1 ? "a video" : attachments.length + " videos"} `;
+  }
+  if (attachments?.[0]?.type === "file") {
+    return `Sent ${attachments.length === 1 ? "a file" : attachments.length + " files"} `;
+  }
+  if (attachments?.[0]?.type === "sticker") {
+    return `Sent a sticker`;
+  }
+  return "";
+};
+
 //update db
 export const updateConversationAfterCreateMessage = (
   conversation,
