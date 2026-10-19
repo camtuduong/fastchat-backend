@@ -734,6 +734,37 @@ export const addPinnedMessageInConversation = async function (req, res) {
   }
 };
 
+export const getUsersActivity = async function (req, res) {
+  try {
+    const conversationId = req.params.conversationId;
+    const userId = req.user._id;
+
+    if (!conversationId) {
+      return res.status(400).json({ message: "Conversation Id is required" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      "participants.userId": userId,
+    });
+
+    if (!conversation) {
+      return res
+        .status(404)
+        .json({ message: "Conversation not found or you are not a member" });
+    }
+
+    const usersActivity = await User.find({
+      _id: { $in: conversation.participants.map((p) => p.userId) },
+    }).select("username displayName avatarUrl status lastActiveAt");
+
+    return res.status(200).json({ usersActivity });
+  } catch (error) {
+    console.error("Error getting user activity:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 export const unpinnedMessageInConversation = async function (req, res) {
   try {
     const { conversationId } = req.params;

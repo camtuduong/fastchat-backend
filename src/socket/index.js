@@ -15,6 +15,11 @@ export const createSocketServer = (server, corsOptions) => {
     const user = socket.user;
     console.log(`User ${user.username} online with Socket ID: ${socket.id}`);
 
+    user.status = "online";
+    user.lastActiveAt = new Date();
+
+    await user.save();
+
     const userId = user._id.toString();
 
     if (!onlineUsers.has(userId)) {
@@ -56,7 +61,7 @@ export const createSocketServer = (server, corsOptions) => {
       });
     });
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
       console.log(`User ${user.username} offline with Socket ID: ${socket.id}`);
 
       const userId = user._id.toString();
@@ -77,6 +82,10 @@ export const createSocketServer = (server, corsOptions) => {
           });
         });
       }
+
+      user.status = "offline";
+      user.lastActiveAt = new Date();
+      await user.save();
 
       io.emit("online-users", Array.from(onlineUsers.keys()));
     });

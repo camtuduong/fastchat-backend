@@ -19,6 +19,7 @@ import {
   shareConversation,
   joinConversationWithToken,
   getThreadSurface,
+  getUsersActivity,
 } from "../controllers/conversationController.js";
 import { upload } from "../middlewares/uploadMiddleware.js";
 
@@ -31,11 +32,14 @@ router.get("/share", joinConversationWithToken);
 
 router.get("/:conversationId", getConversationById);
 router.post("/new", createNewConversation);
+
+router.get("/:conversationId/users-activity", getUsersActivity);
 router.post("/:conversationId/add", addNewMembersToConversation);
 router.delete(
   "/:conversationId/members/:memberId",
   removeMemberFromConversation,
 );
+
 router.patch("/:conversationId/seen", seenConversation);
 router.patch("/:conversationId/remove-for-me", removeConversationForMe);
 
