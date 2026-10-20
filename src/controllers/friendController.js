@@ -185,13 +185,26 @@ export const getAllFriends = async (req, res) => {
 
 export const getFriendRequests = async (req, res) => {
   try {
-    const userId = req.user._id;
-
     //tìm tất cả yêu cầu kết bạn gửi đến UserId
-    const requests = await FriendRequest.find({ toUserId: userId }).populate(
-      "fromUserId",
-      "_id displayName avatarUrl",
-    );
+    const requests = await FriendRequest.find({ toUserId: req.user._id })
+      .populate("fromUserId", "_id displayName avatarUrl")
+      .lean()
+      .select("-toUserId -__v");
+
+    return res.status(200).json({ requests });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getSentFriendRequests = async (req, res) => {
+  try {
+    //tìm tất cả yêu cầu kết bạn mà UserId đã gửi
+    const requests = await FriendRequest.find({ fromUserId: req.user._id })
+      .populate("toUserId", "_id displayName avatarUrl")
+      .lean()
+      .select("-fromUserId -__v");
 
     return res.status(200).json({ requests });
   } catch (error) {
