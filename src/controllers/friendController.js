@@ -2,6 +2,7 @@ import Friend from "../models/Friend.js";
 import User from "../models/User.js";
 import FriendRequest from "../models/FriendRequest.js";
 import { getFriend } from "../utils/friendHelper.js";
+import { escapeRegex } from "../utils/normalizeText.js";
 
 export const sendFriendRequest = async (req, res) => {
   try {
@@ -144,7 +145,7 @@ export const declineFriendRequest = async (req, res) => {
 export const getAllFriends = async (req, res) => {
   try {
     const userId = req.user._id;
-    const searchName = req.query.username || "";
+    const search = escapeRegex(req.query.search);
 
     //tìm tất cả mối quan hệ với UserId
     const friendships = await Friend.find({
@@ -166,17 +167,15 @@ export const getAllFriends = async (req, res) => {
     });
 
     let friendListAfterSearch;
-    if (searchName) {
+    if (search) {
       friendListAfterSearch = friends.filter((friend) => {
-        return friend.displayName
-          .toLowerCase()
-          .includes(searchName.toLowerCase());
+        return friend.displayName.toLowerCase().includes(search.toLowerCase());
       });
     }
 
     return res
       .status(200)
-      .json({ friends: searchName ? friendListAfterSearch : friends });
+      .json({ friends: search ? friendListAfterSearch : friends });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });
@@ -186,27 +185,112 @@ export const getAllFriends = async (req, res) => {
 export const getFriendRequests = async (req, res) => {
   try {
     //tìm tất cả yêu cầu kết bạn gửi đến UserId
-    const requests = await FriendRequest.find({ toUserId: req.user._id })
+    const received = await FriendRequest.find({ toUserId: req.user._id })
       .populate("fromUserId", "_id displayName avatarUrl")
       .lean()
       .select("-toUserId -__v");
 
-    return res.status(200).json({ requests });
+    //tìm tất cả yêu cầu kết bạn mà UserId đã gửi
+    const sent = await FriendRequest.find({ fromUserId: req.user._id })
+      .populate("toUserId", "_id displayName avatarUrl")
+      .lean()
+      .select("-fromUserId -__v");
+
+    return res.status(200).json({ received, sent });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
 
-export const getSentFriendRequests = async (req, res) => {
+export const listSuggestedUsers = async (req, res) => {
   try {
-    //tìm tất cả yêu cầu kết bạn mà UserId đã gửi
-    const requests = await FriendRequest.find({ fromUserId: req.user._id })
-      .populate("toUserId", "_id displayName avatarUrl")
-      .lean()
-      .select("-fromUserId -__v");
+    const search = escapeRegex(req.query.search);
 
-    return res.status(200).json({ requests });
+    const friendships = await Friend.find({
+      $or: [{ userA: req.user._id }, { userB: req.user._id }],
+    })
+      .populate("userA", "_id displayName avatarUrl username")
+      .populate("userB", "_id displayName avatarUrl username")
+      .lean();
+
+    const friendIds = friendships.flatMap((friendship) => [
+      friendship.userA._id.toString(),
+      friendship.userB._id.toString(),
+    ]);
+    console.log("friendIds:", friendIds);
+
+    const listRequest = await FriendRequest.find({
+      $or: [{ fromUserId: req.user._id }, { toUserId: req.user._id }],
+    })
+      .select("fromUserId toUserId")
+      .lean();
+
+    const listSuggestedUsers = await User.find({
+      _id: { $nin: friendIds, $ne: req.user._id.toString() },
+      $or: [
+        { displayNameNormalized: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ],
+    })
+      .select("_id displayName avatarUrl email")
+      .lean();
+
+    console.log("listSuggestedUsers:", listSuggestedUsers);
+    console.log("listRequest:", listRequest);
+
+    listSuggestedUsers.map((userSuggest) => {
+      if (
+        listRequest
+          .map(
+            (request) =>
+              request.fromUserId.toString() === userSuggest._id.toString(),
+          )
+          .includes(true)
+      ) {
+        userSuggest.friendship_status = "received";
+      } else if (
+        listRequest
+          .map(
+            (request) =>
+              request.toUserId.toString() === userSuggest._id.toString(),
+          )
+          .includes(true)
+      ) {
+        userSuggest.friendship_status = "sent";
+      } else {
+        userSuggest.friendship_status = "none";
+      }
+
+      return userSuggest;
+    });
+
+    const listUser = [
+      ...listSuggestedUsers.map((user) => ({
+        _id: user._id,
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
+        email: user.email,
+        friendship_status: user.friendship_status,
+      })),
+      ...friendships.flatMap((friendship) => {
+        const otherUser =
+          friendship.userA._id.toString() === req.user._id.toString()
+            ? friendship.userB
+            : friendship.userA;
+        return [
+          {
+            _id: otherUser._id,
+            displayName: otherUser.displayName,
+            avatarUrl: otherUser.avatarUrl,
+            email: otherUser.email,
+            friendship_status: "friend",
+          },
+        ];
+      }),
+    ];
+
+    return res.status(200).json({ users: listUser });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });

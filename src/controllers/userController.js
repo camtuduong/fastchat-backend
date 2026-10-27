@@ -1,5 +1,6 @@
 import { uploadImageFromBuffer } from "../middlewares/uploadMiddleware.js";
 import User from "../models/User.js";
+import { escapeRegex } from "../utils/normalizeText.js";
 
 export const getMe = async (req, res) => {
   try {
@@ -47,16 +48,15 @@ export const uploadAvatar = async (req, res) => {
 
 export const findUserBySearch = async (req, res) => {
   try {
-    const search = req.query.search;
+    const search = escapeRegex(req.query.search);
     if (!search) {
       return res.status(200).json({ users: [] });
     }
 
     const users = await User.find({
       $or: [
-        { username: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
-        { displayName: { $regex: search, $options: "i" } },
+        { displayNameNormalized: { $regex: search, $options: "i" } },
       ],
       _id: { $ne: req.user._id },
     }).select("username displayName avatarUrl");
