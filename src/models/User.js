@@ -21,6 +21,7 @@ const userSchema = new mongoose.Schema(
       maxlength: 100,
     },
     displayName: { type: String, required: true, trim: true, maxlength: 100 },
+    displayNameNormalized: { type: String, index: true },
     avatarUrl: { type: String, trim: true },
     avatarId: { type: String, trim: true },
     bio: { type: String, maxlength: 500 },
@@ -39,9 +40,8 @@ const userSchema = new mongoose.Schema(
 
 userSchema.pre("save", function () {
   if (this.isModified("displayName")) {
-    this.displayName = normalizeText(this.displayName);
+    this.displayNameNormalized = normalizeText(this.displayName);
   }
 });
-
 const User = mongoose.model("User", userSchema);
 export default User;
