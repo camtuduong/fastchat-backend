@@ -9,6 +9,7 @@ import friendRoute from "./routes/friendRoute.js";
 import messageRoute from "./routes/messageRoute.js";
 import conversationRoute from "./routes/conversationRoute.js";
 import stickerRoute from "./routes/stickerRouter.js";
+import notificationRoute from "./routes/notificationRoute.js";
 import { createSocketServer, onlineUsers } from "./socket/index.js";
 
 import cookieParser from "cookie-parser";
@@ -84,6 +85,7 @@ app.use("/api/friends", friendRoute);
 app.use("/api/messages", messageRoute);
 app.use("/api/conversations", conversationRoute);
 app.use("/api/stickers", stickerRoute);
+app.use("/api/notifications", notificationRoute);
 
 cron.schedule(
   "0 9 * * *",

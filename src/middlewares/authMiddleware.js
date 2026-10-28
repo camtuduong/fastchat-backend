@@ -23,7 +23,9 @@ export const authMiddleware = async (req, res, next) => {
     }
 
     //tìm user từ token
-    const user = await User.findById(userId).select("-hashPassword");
+    const user = await User.findById(userId).select(
+      "-hashPassword -normalizedDisplayName",
+    );
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }

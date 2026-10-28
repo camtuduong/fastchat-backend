@@ -5,6 +5,7 @@ import Session from "../models/Session.js";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { env } from "../config/env.js";
+import Notification from "../models/Notification.js";
 
 const ACCESS_TOKEN_EXPIRES_IN = "15m";
 const REFRESH_TOKEN_EXPIRES_IN = 14 * 24 * 60 * 60 * 1000; //14 ngay
@@ -45,11 +46,17 @@ export const signUp = async (req, res) => {
     const hashPassword = await bcrypt.hash(password, 10); //saltRounds = 10 so lan ma hoa password
 
     //tao user moi
-    await User.create({
+    const newUser = await User.create({
       username,
       email,
       hashPassword,
       displayName: `${firstName} ${lastName}`,
+    });
+
+    //tao notification
+    await Notification.create({
+      ownerId: newUser._id,
+      unReadCount: 0,
     });
 
     return res.sendStatus(204); //204 No Content

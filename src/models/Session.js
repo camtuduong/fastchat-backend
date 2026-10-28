@@ -22,12 +22,7 @@ const sessionSchema = new mongoose.Schema(
 //xoa session khi het han hoac khi bi thu hoi (nghiep vu thu hoi session se cap nhat truong revokedAt thay vi xoa session)
 sessionSchema.index(
   { userId: 1, deviceId: 1, expiresAt: 1 },
-  { expireAfterSeconds: 0 },
-  {
-    partialFilterExpression: {
-      revokedAt: null,
-    },
-  },
+  { expireAfterSeconds: 0, partialFilterExpression: { revokedAt: null } },
 );
 
 const Session = mongoose.model("Session", sessionSchema);
