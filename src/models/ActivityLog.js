@@ -13,9 +13,15 @@ const activityLogSchema = new mongoose.Schema({
       "reply",
       "reaction",
       "new_message",
-      "received-request",
+      "added_to_new_conversation",
+      "received_friend_request",
+      "friend_request_accepted",
     ],
     required: true,
+  },
+  isRead: {
+    type: Boolean,
+    default: false,
   },
   senderId: {
     type: mongoose.Schema.Types.ObjectId,
