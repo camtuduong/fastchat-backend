@@ -218,7 +218,6 @@ export const listSuggestedUsers = async (req, res) => {
       friendship.userA._id.toString(),
       friendship.userB._id.toString(),
     ]);
-    console.log("friendIds:", friendIds);
 
     const listRequest = await FriendRequest.find({
       $or: [{ fromUserId: req.user._id }, { toUserId: req.user._id }],
@@ -235,9 +234,6 @@ export const listSuggestedUsers = async (req, res) => {
     })
       .select("_id displayName avatarUrl email")
       .lean();
-
-    console.log("listSuggestedUsers:", listSuggestedUsers);
-    console.log("listRequest:", listRequest);
 
     listSuggestedUsers.map((userSuggest) => {
       if (
