@@ -35,7 +35,7 @@ const messageSchema = new mongoose.Schema(
       type: senderSchema,
       required: true,
     },
-    content: { type: String, trim: true, maxlength: MAX_CONTENT_LENGTH },
+    content: { type: String, maxlength: MAX_CONTENT_LENGTH },
     attachments: [
       {
         type: {
