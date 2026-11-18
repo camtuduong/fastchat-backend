@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
-import { normalizeText } from "../utils/normalizeText.js";
+
+import { normalizeText } from "#utils/normalizeText.js";
 
 const userSchema = new mongoose.Schema(
   {

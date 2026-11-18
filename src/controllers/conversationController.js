@@ -1,26 +1,27 @@
+import crypto from "crypto";
 import mongoose from "mongoose";
-import Conversation from "../models/Conversation.js";
-import Message from "../models/Message.js";
-import User from "../models/User.js";
-import { getNextCursor } from "../utils/paginationHelper.js";
-import { buildMessagePipeline } from "../utils/buildMessagePipeline.js";
-import { onlineUsers } from "../socket/index.js";
-import {
-  emitNewMessage,
-  emitPinMessage,
-  emitUnpinnedMessage,
-} from "../utils/messageHelper.js";
-import { buildConversationPipeline } from "../utils/buildConversationPipeline.js";
-import { uploadImageFromBuffer } from "../middlewares/uploadMiddleware.js";
+
+import { uploadImageFromBuffer } from "#middlewares/uploadMiddleware.js";
+import Conversation from "#models/Conversation.js";
+import Message from "#models/Message.js";
+import Share from "#models/Share.js";
+import User from "#models/User.js";
+import { onlineUsers } from "#socket/index.js";
+import { buildConversationPipeline } from "#utils/buildConversationPipeline.js";
+import { buildMessagePipeline } from "#utils/buildMessagePipeline.js";
 import {
   emitAddMember,
   emitNewThread,
   emitRemoveMember,
   emitUpdateGroupAvatar,
   emitUpdateGroupName,
-} from "../utils/conversationHelper.js";
-import Share from "../models/Share.js";
-import crypto from "crypto";
+} from "#utils/conversationHelper.js";
+import {
+  emitNewMessage,
+  emitPinMessage,
+  emitUnpinnedMessage,
+} from "#utils/messageHelper.js";
+import { getNextCursor } from "#utils/paginationHelper.js";
 
 export const MAX_ATTACHMENT_FILES = 10; // Maximum number of attachments per message
 

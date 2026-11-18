@@ -1,6 +1,7 @@
 import { Server } from "socket.io";
-import { socketMiddleware } from "../middlewares/socketMiddleware.js";
-import { getUserConversationsForSocket } from "../controllers/conversationController.js";
+
+import { getUserConversationsForSocket } from "#controllers/conversationController.js";
+import { socketMiddleware } from "#middlewares/socketMiddleware.js";
 
 export const onlineUsers = new Map(); // {userId: socketId}
 

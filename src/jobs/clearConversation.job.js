@@ -1,4 +1,4 @@
-import Conversation from "../models/Conversation.js";
+import Conversation from "#models/Conversation.js";
 
 export const clearConversation = async () => {
   try {

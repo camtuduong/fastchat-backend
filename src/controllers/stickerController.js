@@ -1,5 +1,5 @@
-import { apiKlipy } from "../services/apiKlipy.js";
-import { env } from "../config/env.js";
+import { env } from "#config/env.js";
+import { apiKlipy } from "#services/apiKlipy.js";
 
 export const searchSticker = async (req, res) => {
   const { query, page, per_page, format_filter, content_filter } = req.query;

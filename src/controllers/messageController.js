@@ -1,6 +1,6 @@
-import Conversation from "../models/Conversation.js";
-import Message from "../models/Message.js";
-import { buildMessagePipeline } from "../utils/buildMessagePipeline.js";
+import Conversation from "#models/Conversation.js";
+import Message from "#models/Message.js";
+import { buildMessagePipeline } from "#utils/buildMessagePipeline.js";
 import {
   contentForAttachments,
   emitDeleteMessage,
@@ -8,7 +8,7 @@ import {
   emitThreadSurfaceUpdate,
   updateConversationAfterCreateMessage,
   updateConversationAfterDeleteMessage,
-} from "../utils/messageHelper.js";
+} from "#utils/messageHelper.js";
 
 const MAX_CONTENT_LENGTH = 10000; // Độ dài tối đa của content
 
