@@ -35,7 +35,16 @@ const messageSchema = new mongoose.Schema(
       type: senderSchema,
       required: true,
     },
+    // The main content of the message
     content: { type: String, maxlength: MAX_CONTENT_LENGTH },
+    // The structured content of the message in JSON format
+    contentJson: { type: mongoose.Schema.Types.Mixed, default: null },
+    mentionedUserIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     attachments: [
       {
         type: {
@@ -80,7 +89,7 @@ const messageSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-messageSchema.index({ conversationId: 1, createdAt: -1 });
+messageSchema.index({ conversationId: 1, mentionedUserIds: 1, createdAt: -1 });
 
 const Message = mongoose.model("Message", messageSchema);
 export default Message;

@@ -28,7 +28,8 @@ const MAX_CONTENT_LENGTH = 10000; // Độ dài tối đa của content
 //new flow khi accept rq thì tạo luôn conversation hoặc tạo bằng cách tìm kiếm và tạo
 export const sendMessage = async (req, res) => {
   try {
-    const { conversationId, content, attachments, replyTo } = req.body;
+    const { conversationId, content, attachments, replyTo, contentJson } =
+      req.body;
     //sender là user đang đăng nhập
     const senderId = req.user._id;
     const io = req.app.get("io");
@@ -91,6 +92,9 @@ export const sendMessage = async (req, res) => {
       }
     }
 
+    const mentionedUserIds =
+      contentJson?.mentions?.map((mention) => mention.userId) ?? [];
+
     const createdMessage = await Message.create({
       conversationId: conversation._id,
       sender: {
@@ -99,6 +103,8 @@ export const sendMessage = async (req, res) => {
       content,
       attachments,
       replyTo: replyTo ?? null,
+      contentJson,
+      mentionedUserIds,
     });
 
     // Cập nhật nội dung hiển thị dựa trên attachments nếu content rỗng
