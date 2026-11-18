@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
-import User from "../models/User.js";
-import { env } from "../server.js";
+
+import User from "#models/User.js";
+import { env } from "#server.js";
 
 //middleware xac thuc nguoi dung
 export const authMiddleware = async (req, res, next) => {

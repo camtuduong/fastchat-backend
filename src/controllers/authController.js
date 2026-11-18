@@ -1,11 +1,12 @@
 import bcrypt from "bcrypt";
-import { OAuth2Client } from "google-auth-library";
-import User from "../models/User.js";
-import Session from "../models/Session.js";
-import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { env } from "../config/env.js";
-import Notification from "../models/Notification.js";
+import { OAuth2Client } from "google-auth-library";
+import jwt from "jsonwebtoken";
+
+import { env } from "#config/env.js";
+import Notification from "#models/Notification.js";
+import Session from "#models/Session.js";
+import User from "#models/User.js";
 
 const ACCESS_TOKEN_EXPIRES_IN = "15m";
 const REFRESH_TOKEN_EXPIRES_IN = 14 * 24 * 60 * 60 * 1000; //14 ngay

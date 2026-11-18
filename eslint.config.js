@@ -1,6 +1,8 @@
 import js from "@eslint/js";
 import globals from "globals";
+import prettier from "eslint-config-prettier";
 import importPlugin from "eslint-plugin-import";
+import simpleImportSort from "eslint-plugin-simple-import-sort";
 import unusedImports from "eslint-plugin-unused-imports";
 
 export default [
@@ -22,6 +24,7 @@ export default [
     plugins: {
       import: importPlugin,
       "unused-imports": unusedImports,
+      "simple-import-sort": simpleImportSort,
     },
     settings: {
       "import/resolver": {
@@ -32,9 +35,9 @@ export default [
     },
     rules: {
       "no-unused-vars": "off",
-      "unused-imports/no-unused-imports": "warn",
+      "unused-imports/no-unused-imports": "error",
       "unused-imports/no-unused-vars": [
-        "warn",
+        "error",
         {
           vars: "all",
           varsIgnorePattern: "^_",
@@ -43,11 +46,27 @@ export default [
         },
       ],
 
-      "import/no-unresolved": "error",
+      "simple-import-sort/imports": "error",
+      "simple-import-sort/exports": "error",
+      "import/no-unresolved": ["error", { ignore: ["^#"] }],
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["./*", "../*"],
+              message:
+                "Dùng absolute import (alias #, ví dụ #utils/foo.js) thay vì relative.",
+            },
+          ],
+        },
+      ],
       "no-duplicate-imports": "error",
       "no-undef": "error",
       "prefer-const": "warn",
       eqeqeq: "error",
     },
   },
+
+  prettier,
 ];

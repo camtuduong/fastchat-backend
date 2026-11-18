@@ -1,27 +1,28 @@
 import express from "express";
+
 import {
-  getAllConversations,
-  getMessagesInConversation,
-  createNewConversation,
-  seenConversation,
-  getConversationById,
-  removeConversationForMe,
-  addPinnedMessageInConversation,
-  unpinnedMessageInConversation,
   addNewMembersToConversation,
-  removeMemberFromConversation,
-  uploadGroupAvatar,
-  updateGroupName,
+  addPinnedMessageInConversation,
+  createNewConversation,
   favoriteInConversation,
-  uploadAttachment,
-  MAX_ATTACHMENT_FILES,
   getAllAttachmentShareInConversation,
-  shareConversation,
-  joinConversationWithToken,
+  getAllConversations,
+  getConversationById,
+  getMessagesInConversation,
   getThreadSurface,
   getUsersActivity,
-} from "../controllers/conversationController.js";
-import { upload } from "../middlewares/uploadMiddleware.js";
+  joinConversationWithToken,
+  MAX_ATTACHMENT_FILES,
+  removeConversationForMe,
+  removeMemberFromConversation,
+  seenConversation,
+  shareConversation,
+  unpinnedMessageInConversation,
+  updateGroupName,
+  uploadAttachment,
+  uploadGroupAvatar,
+} from "#controllers/conversationController.js";
+import { upload } from "#middlewares/uploadMiddleware.js";
 
 const router = express.Router();
 

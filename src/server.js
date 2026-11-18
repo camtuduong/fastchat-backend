@@ -1,25 +1,24 @@
-import express from "express";
-import dotenv from "dotenv";
-import { connectDB } from "./libs/db.js";
-import http from "http";
-
-import authRoute from "./routes/authRoute.js";
-import userRoute from "./routes/userRoute.js";
-import friendRoute from "./routes/friendRoute.js";
-import messageRoute from "./routes/messageRoute.js";
-import conversationRoute from "./routes/conversationRoute.js";
-import stickerRoute from "./routes/stickerRouter.js";
-import notificationRoute from "./routes/notificationRoute.js";
-import { createSocketServer, onlineUsers } from "./socket/index.js";
-
-import cookieParser from "cookie-parser";
-import { authMiddleware } from "./middlewares/authMiddleware.js";
-import swaggerUI from "swagger-ui-express";
-import fs from "fs";
-import cors from "cors";
 import { v2 as cloudinary } from "cloudinary";
+import cookieParser from "cookie-parser";
+import cors from "cors";
+import dotenv from "dotenv";
+import express from "express";
+import fs from "fs";
+import http from "http";
 import cron from "node-cron";
-import { clearConversation } from "./jobs/clearConversation.job.js";
+import swaggerUI from "swagger-ui-express";
+
+import { clearConversation } from "#jobs/clearConversation.job.js";
+import { connectDB } from "#libs/db.js";
+import { authMiddleware } from "#middlewares/authMiddleware.js";
+import authRoute from "#routes/authRoute.js";
+import conversationRoute from "#routes/conversationRoute.js";
+import friendRoute from "#routes/friendRoute.js";
+import messageRoute from "#routes/messageRoute.js";
+import notificationRoute from "#routes/notificationRoute.js";
+import stickerRoute from "#routes/stickerRouter.js";
+import userRoute from "#routes/userRoute.js";
+import { createSocketServer, onlineUsers } from "#socket/index.js";
 
 dotenv.config();
 

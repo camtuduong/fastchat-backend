@@ -1,12 +1,13 @@
 import express from "express";
+
 import {
-  signUp,
-  signIn,
-  signOut,
   refreshToken,
+  signIn,
   signInWithGoogle,
-} from "../controllers/authController.js";
-import { authMiddleware } from "../middlewares/authMiddleware.js";
+  signOut,
+  signUp,
+} from "#controllers/authController.js";
+import { authMiddleware } from "#middlewares/authMiddleware.js";
 
 const router = express.Router();
 

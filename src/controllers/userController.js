@@ -1,6 +1,6 @@
-import { uploadImageFromBuffer } from "../middlewares/uploadMiddleware.js";
-import User from "../models/User.js";
-import { escapeRegex } from "../utils/normalizeText.js";
+import { uploadImageFromBuffer } from "#middlewares/uploadMiddleware.js";
+import User from "#models/User.js";
+import { escapeRegex } from "#utils/normalizeText.js";
 
 export const getMe = async (req, res) => {
   try {
@@ -11,7 +11,7 @@ export const getMe = async (req, res) => {
   }
 };
 
-export const updateProfile = async (req, res) => {};
+export const updateProfile = async (_req, _res) => {};
 
 export const uploadAvatar = async (req, res) => {
   try {

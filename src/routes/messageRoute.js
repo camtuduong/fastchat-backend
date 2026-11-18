@@ -1,8 +1,9 @@
 import express from "express";
+
 import {
   deleteMessageWithEveryOne,
   sendMessage,
-} from "../controllers/messageController.js";
+} from "#controllers/messageController.js";
 
 const router = express.Router();
 
