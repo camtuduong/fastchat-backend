@@ -1,5 +1,11 @@
+import ActivityLog from "#models/ActivityLog.js";
 import Conversation from "#models/Conversation.js";
 import Message from "#models/Message.js";
+import Notification from "#models/Notification.js";
+import {
+  emitNotification,
+  updateNotificationAfterAddActivity,
+} from "#utils/activityHelper.js";
 import { buildMessagePipeline } from "#utils/buildMessagePipeline.js";
 import {
   contentForAttachments,
@@ -28,8 +34,14 @@ const MAX_CONTENT_LENGTH = 10000; // Độ dài tối đa của content
 //new flow khi accept rq thì tạo luôn conversation hoặc tạo bằng cách tìm kiếm và tạo
 export const sendMessage = async (req, res) => {
   try {
-    const { conversationId, content, attachments, replyTo, contentJson } =
-      req.body;
+    const {
+      conversationId,
+      content,
+      attachments,
+      replyTo,
+      contentJson,
+      mentionedUserIds,
+    } = req.body;
     //sender là user đang đăng nhập
     const senderId = req.user._id;
     const io = req.app.get("io");
@@ -92,9 +104,6 @@ export const sendMessage = async (req, res) => {
       }
     }
 
-    const mentionedUserIds =
-      contentJson?.mentions?.map((mention) => mention.userId) ?? [];
-
     const createdMessage = await Message.create({
       conversationId: conversation._id,
       sender: {
@@ -134,6 +143,31 @@ export const sendMessage = async (req, res) => {
     emitNewMessage(io, conversation, message);
     if (conversation.type === "thread") {
       emitThreadSurfaceUpdate(io, conversation, message);
+    }
+
+    //nếu có người được mention trong message thì tạo activity cho họ
+    if (mentionedUserIds?.length > 0) {
+      mentionedUserIds.forEach(async (mentionUserId) => {
+        const notification = await Notification.findOne({
+          ownerId: mentionUserId,
+        });
+
+        await ActivityLog.create({
+          notificationId: notification._id,
+          ownerId: mentionUserId,
+          type: "mention",
+          sender: {
+            userId: senderId,
+          },
+          idToLink: message._id,
+        });
+
+        updateNotificationAfterAddActivity(notification);
+
+        await notification.save();
+
+        emitNotification(io, senderId, message, notification);
+      });
     }
 
     res.status(201).json({ message: "Message sent successfully" });

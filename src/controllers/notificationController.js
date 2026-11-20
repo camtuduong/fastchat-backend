@@ -3,7 +3,8 @@ import Notification from "#models/Notification.js";
 export const getNotifications = async (req, res) => {
   try {
     const ownerId = req.user.id;
-    const notifications = await Notification.find({ ownerId });
+    const notifications = await Notification.findOne({ ownerId });
+
     res.status(200).json(notifications);
   } catch (error) {
     res.status(500).json({ error: error.message });
