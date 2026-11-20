@@ -35,16 +35,16 @@ const messageSchema = new mongoose.Schema(
       type: senderSchema,
       required: true,
     },
-    // The main content of the message
-    content: { type: String, maxlength: MAX_CONTENT_LENGTH },
-    // The structured content of the message in JSON format
-    contentJson: { type: mongoose.Schema.Types.Mixed, default: null },
     mentionedUserIds: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
       },
     ],
+    // The main content of the message
+    content: { type: String, maxlength: MAX_CONTENT_LENGTH },
+    // The structured content of the message in JSON format
+    contentJson: { type: mongoose.Schema.Types.Mixed, default: null },
     attachments: [
       {
         type: {

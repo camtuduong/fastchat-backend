@@ -3,6 +3,13 @@ import mongoose from "mongoose";
 const activityLogSchema = new mongoose.Schema({
   notificationId: {
     type: mongoose.Schema.Types.ObjectId,
+    ref: "Notification",
+    required: true,
+  },
+
+  ownerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
     required: true,
   },
   type: {
@@ -23,9 +30,11 @@ const activityLogSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
-  senderId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+  sender: {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
   },
   // ID to link the activity to a specific entity (e.g., message, thread, etc.)
   idToLink: {

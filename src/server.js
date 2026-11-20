@@ -11,6 +11,7 @@ import swaggerUI from "swagger-ui-express";
 import { clearConversation } from "#jobs/clearConversation.job.js";
 import { connectDB } from "#libs/db.js";
 import { authMiddleware } from "#middlewares/authMiddleware.js";
+import activityRoute from "#routes/activityRoute.js";
 import authRoute from "#routes/authRoute.js";
 import conversationRoute from "#routes/conversationRoute.js";
 import friendRoute from "#routes/friendRoute.js";
@@ -85,6 +86,7 @@ app.use("/api/messages", messageRoute);
 app.use("/api/conversations", conversationRoute);
 app.use("/api/stickers", stickerRoute);
 app.use("/api/notifications", notificationRoute);
+app.use("/api/activities", activityRoute);
 
 cron.schedule(
   "0 9 * * *",
